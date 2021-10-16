@@ -18,12 +18,14 @@ type
     Button3: TButton;
     Button4: TButton;
     Button5: TButton;
+    Button6: TButton;
     Memo1: TMemo;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
+    procedure Button6Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
@@ -42,7 +44,7 @@ implementation
 const
   LIBMPSSE                                 = 'libmpsse.dll';
 
-  ADDRESS_TPS65987                         = $20;
+  ADDRESS_TPS65987                         = $21;
 
   REGISTER_RX_SOURCE_PDO = $30;
   REGISTER_RX_SINK_PDO   = $31;
@@ -394,6 +396,20 @@ type
      TXSourcePDOsBank1          : packed array [0..6] of USBC_SOURCE_PD_POWER_DATA_OBJECT;
   end;
 
+  TXSINKPDS = packed record
+     Header: bitpacked record
+       TXSinkNumValidPDOs           : T3BITS;
+       Reserved                     : T5BITS;
+     end;
+     TXSinkPDOs                     : packed array [0..6] of USBC_SINK_PD_POWER_DATA_OBJECT;
+     MaxOperatingCurrentOrPower     : T10BITS;
+     MinOperatingCurrentOrPower     : T10BITS;
+     Reserved1                      : T1BITS;
+     AskForMax                      : T1BITS;
+     Reserved2                      : T1BITS;
+     PDOExtension                   : packed array [0..6] of USBC_PD_REQUEST_DATA_OBJECT;
+  end;
+
 
 function I2C_GetNumChannels(
   numChannels: puint32
@@ -662,6 +678,50 @@ begin
           Memo1.Lines.Append('Source bank1 PDO. Type: '+SUPPLY_TYPES[SourcePDS.TXSourcePDOsBank1[i].GenericPdo.Supply]);
           Memo1.Lines.Append('Source bank1 PDO. Current: '+InttoStr(SourcePDS.TXSourcePDOsBank1[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
           Memo1.Lines.Append('Source bank1 PDO. Voltage: '+InttoStr(SourcePDS.TXSourcePDOsBank1[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+        end;
+      end;
+
+      Sleep(1000);
+
+    finally
+      TButton(Sender).Enabled:=true;
+    end;
+  end;
+end;
+
+procedure TForm1.Button6Click(Sender: TObject);
+var
+  result:FT_Result;
+  Buffer:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
+  SinkPDS: TXSINKPDS absolute Buffer[1];
+  towrite,written:uint32;
+  i:integer;
+begin
+  if Assigned(FTHandle) then
+  begin
+    TButton(Sender).Enabled:=false;
+    try
+      towrite:=1;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      buffer[0]:=REGISTER_TX_SINK_PDO;
+      result:=I2C_DeviceWrite(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      towrite:=57;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      Memo1.Lines.Append('Sink PDOs: '+InttoStr(SinkPDS.Header.TXSinkNumValidPDOs));
+
+      if (SinkPDS.Header.TXSinkNumValidPDOs>0) then
+      begin
+        for i:=0 to Pred(SinkPDS.Header.TXSinkNumValidPDOs) do
+        begin
+          Memo1.Lines.Append('Sink PDO#'+InttoStr(i+1));
+          Memo1.Lines.Append('Sink PDO. Type: '+SUPPLY_TYPES[SinkPDS.TXSinkPDOs[i].GenericPdo.Supply]);
+          Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDS.TXSinkPDOs[i].FixedSupplyPdo.OperationalCurrentIn10mA*10)+ 'mA');
+          Memo1.Lines.Append('Sink PDO. Voltage: '+InttoStr(SinkPDS.TXSinkPDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
         end;
       end;
 
