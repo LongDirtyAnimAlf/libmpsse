@@ -2,28 +2,59 @@ object Form1: TForm1
   Left = 259
   Height = 422
   Top = 119
-  Width = 391
+  Width = 689
   Caption = 'Form1'
   ClientHeight = 422
-  ClientWidth = 391
+  ClientWidth = 689
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
   LCLVersion = '2.3.0.0'
   object Button1: TButton
     Left = 17
     Height = 60
     Top = 16
-    Width = 124
+    Width = 113
     Caption = 'Button1'
     OnClick = Button1Click
     TabOrder = 0
   end
   object Memo1: TMemo
-    Left = 165
+    Left = 336
     Height = 374
     Top = 20
-    Width = 139
+    Width = 330
+    Anchors = [akTop, akLeft, akRight, akBottom]
     Lines.Strings = (
       'Memo1'
     )
+    ScrollBars = ssAutoVertical
     TabOrder = 1
+  end
+  object Button2: TButton
+    Left = 17
+    Height = 54
+    Top = 88
+    Width = 113
+    Caption = 'Active PDO'
+    OnClick = Button2Click
+    TabOrder = 2
+  end
+  object Button3: TButton
+    Left = 17
+    Height = 64
+    Top = 152
+    Width = 113
+    Caption = 'Get PDOs'
+    OnClick = Button3Click
+    TabOrder = 3
+  end
+  object Button4: TButton
+    Left = 146
+    Height = 53
+    Top = 91
+    Width = 110
+    Caption = 'Button4'
+    OnClick = Button4Click
+    TabOrder = 4
   end
 end

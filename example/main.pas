@@ -14,10 +14,18 @@ type
 
   TForm1 = class(TForm)
     Button1: TButton;
+    Button2: TButton;
+    Button3: TButton;
+    Button4: TButton;
     Memo1: TMemo;
     procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+    procedure Button4Click(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
   private
-
+    FTHandle:FT_HANDLE;
   public
 
   end;
@@ -31,6 +39,19 @@ implementation
 
 const
   LIBMPSSE                                 = 'libmpsse.dll';
+
+  ADDRESS_TPS65987                         = $20;
+
+  REGISTER_RX_SOURCE_PDO = $30;
+  REGISTER_RX_SINK_PDO   = $31;
+  REGISTER_TX_SOURCE_PDO = $32;
+  REGISTER_TX_SINK_PDO   = $33;
+
+  REGISTER_ACTIVE_PDO = $34; // Active_PDO : 6
+  REGISTER_ACTIVE_RDO = $35; // Active_RDO : 4
+  REGISTER_SINK_RDO   = $36; // Active_RDO : 4
+  REGISTER_AUTO_SINK  = $37;
+  REGISTER_PD_STATUS  = $40; // PD_Status  : 4
 
   I2C_DEVICE_BUFFER_SIZE                   = 256;
 
@@ -54,6 +75,9 @@ const
   I2C_DISABLE_3PHASE_CLOCKING              = $0001;
 
   I2C_ENABLE_DRIVE_ONLY_ZERO               = $0002;
+
+  SUPPLY_TYPES : array[0..3] of string = ('Fixed supply','Battery','Variable supply','Reserved');
+
 
 type
    T1BITS     = 0 ..        $1;
@@ -143,6 +167,191 @@ type
   end;
   PFT_CHANNEL_CONFIG = ^FT_CHANNEL_CONFIG;
 
+  USBC_SOURCE_PD_POWER_DATA_OBJECT = bitpacked record
+      case integer of
+          1 : (  FixedSupplyPdo : record
+                   MaximumCurrentIn10mA     : T10BITS;
+                   VoltageIn50mV            : T10BITS;
+                   PeakCurrent              : T2BITS;
+                   Reserved1                : T3BITS;
+                   DataRoleSwap             : T1BITS;
+                   UsbCommunicationCapable  : T1BITS;
+                   ExternallyPowered        : T1BITS;
+                   UsbSuspendSupported      : T1BITS;
+                   DualRolePower            : T1BITS;
+                   FixedSupply              : T2BITS;
+                 end
+              );
+          2 : (  BatterySupplyPdo : record
+                   MaximumAllowablePowerIn250mW  : T10BITS;
+                   MinimumVoltageIn50mV          : T10BITS;
+                   MaximumVoltageIn50mV          : T10BITS;
+                   Battery                       : T2BITS;
+                 end
+              );
+          3 : (  VariableSupplyNonBatteryPdo : record
+                   MaximumCurrentIn10mA      : T10BITS;
+                   MinimumVoltageIn50mV      : T10BITS;
+                   MaximumVoltageIn50mV      : T10BITS;
+                   VariableSupportNonBattery : T2BITS;
+                 end
+              );
+          4 : (  ProgrammablePowerSupplyApdo : record
+                   MaximumCurrentIn50mA         : T7BITS;
+                   Reserved1                    : T1BITS;
+                   MinimumVoltageIn100mV        : T8BITS;
+                   Reserved2                    : T1BITS;
+                   MaximumVoltageIn100mV        : T8BITS;
+                   Reserved3                    : T2BITS;
+                   PpsPowerLimited              : T1BITS;
+                   AugmentedPowerDataObjectType : T2BITS;
+                   AugmentedPowerDataObject     : T2BITS;
+                 end
+              );
+          5 : (  FixedSupplyPdoSink : record
+                   OperationalCurrentIn10mA     : T10BITS;
+                   VoltageIn50mV                : T10BITS;
+                   Reserved                     : T5BITS;
+                   DataRoleSwap                 : T1BITS;
+                   UsbCommunicationCapable      : T1BITS;
+                   ExternallyPowered            : T1BITS;
+                   HigherCapability             : T1BITS;
+                   DualRolePower                : T1BITS;
+                   FixedSupply                  : T2BITS;
+                 end
+              );
+          6 : (  BatterySupplyPdoSink : record
+                   OperationalPowerIn250mW      : T10BITS;
+                   MinimumVoltageIn50mV         : T10BITS;
+                   MaximumVoltageIn50mV         : T10BITS;
+                   Battery                      : T2BITS;
+                 end
+                 );
+          7 : (  VariableSupplyNonBatteryPdoSink : record
+                   OperationalCurrentIn10mA     : T10BITS;
+                   MinimumVoltageIn50mV         : T10BITS;
+                   MaximumVoltageIn50mV         : T10BITS;
+                   VariableSupportNonBattery    : T2BITS;
+                 end
+                 );
+          8 : (  GenericPdo : record
+                   PDO                          : T30BITS;
+                   Supply                       : T2BITS;
+                 end
+                 );
+          9 : (
+               Bits            : bitpacked array[0..31] of T1BITS;
+              );
+         10 : (
+               Raw             : DWord;
+              );
+
+  end;
+
+  USBC_SINK_PD_POWER_DATA_OBJECT = bitpacked record
+      case integer of
+          1 : (  FixedSupplyPdo : record
+                   OperationalCurrentIn10mA : T10BITS;
+                   VoltageIn50mV            : T10BITS;
+                   Reserved                 : T5BITS;
+                   DualRoleData             : T1BITS;
+                   UsbCommunicationCapable  : T1BITS;
+                   ExternallyPowered        : T1BITS;
+                   HigherCapability         : T1BITS;
+                   DualRolePower            : T1BITS;
+                   FixedSupply              : T2BITS;
+                 end
+              );
+          2 : (  BatterySupplyPdo : record
+                   MaximumAllowablePowerIn250mW  : T10BITS;
+                   MinimumVoltageIn50mV          : T10BITS;
+                   MaximumVoltageIn50mV          : T10BITS;
+                   Battery                       : T2BITS;
+                 end
+              );
+          3 : (  VariableSupplyNonBatteryPdo : record
+                   OperationalCurrentIn10mA  : T10BITS;
+                   MinimumVoltageIn50mV      : T10BITS;
+                   MaximumVoltageIn50mV      : T10BITS;
+                   VariableSupportNonBattery : T2BITS;
+                 end
+              );
+          4 : (  GenericPdo : record
+                   PDO                          : T30BITS;
+                   Supply                       : T2BITS;
+                 end
+                 );
+          5 : (
+               Bits            : bitpacked array[0..31] of T1BITS;
+               );
+          6 : (
+               Raw             : DWord;
+              );
+  end;
+
+  USBC_PD_REQUEST_DATA_OBJECT = bitpacked record
+      case integer of
+          1 : (  FixedAndVariableRdo : record
+                   MaximumOperatingCurrentIn10mA : T10BITS;
+                   OperatingCurrentIn10mA        : T10BITS;
+                   Reserved1                     : T5BITS;
+                   NoUSBsuspend                  : T1BITS;
+                   UsbCommunicationCapable       : T1BITS;
+                   CapabilityMismatch            : T1BITS;
+                   GiveBackFlag                  : T1BITS;
+                   ObjectPosition                : T3BITS;
+                   Reserved2                     : T2BITS;
+                 end
+              );
+          2 : (  BatteryRdo : record
+                   MaximumOperatingPowerIn250mW  : T10BITS;
+                   OperatingPowerIn250mW         : T10BITS;
+                   Reserved1                     : T5BITS;
+                   NoUSBsuspend                  : T1BITS;
+                   UsbCommunicationCapable       : T1BITS;
+                   CapabilityMismatch            : T1BITS;
+                   GiveBackFlag                  : T1BITS;
+                   ObjectPosition                : T3BITS;
+                   Reserved2                     : T2BITS;
+                 end
+              );
+          3 : (  ProgrammableRdo : record
+                   OperatingCurrentIn50mA             : T7BITS;
+                   Reserved1                          : T2BITS;
+                   OutputVoltageIn20mV                : T11BITS;
+                   Reserved2                          : T3BITS;
+                   UnchunkedExtendedMessagesSupported : T1BITS;
+                   Reserved3                          : T2BITS;
+                   CapabilityMismatch                 : T1BITS;
+                   Reserved4                          : T1BITS;
+                   ObjectPosition                     : T3BITS;
+                   Reserved5                          : T1BITS;
+                 end
+              );
+          4 : (
+               Bits            : bitpacked array[0..31] of T1BITS;
+               );
+          5 : (
+               Raw             : DWord;
+              );
+  end;
+
+  RXSOURCEPDS = packed record
+     Header: bitpacked record
+       NumValidPDO         : T3BITS;
+       Reserved            : T5BITS;
+     end;
+     RXSourcePDOs          : packed array [0..6] of USBC_SOURCE_PD_POWER_DATA_OBJECT;
+  end;
+
+  RXSINKPDS = packed record
+     Header: bitpacked record
+       NumValidPDO         : T3BITS;
+       Reserved            : T5BITS;
+     end;
+     RXSinkPDOs          : packed array [0..6] of USBC_SINK_PD_POWER_DATA_OBJECT;
+  end;
+
 
 function I2C_GetNumChannels(
   numChannels: puint32
@@ -185,82 +394,196 @@ function I2C_DeviceRead(
 procedure TForm1.Button1Click(Sender: TObject);
 const
   CHANNEL = 1;
-  REGISTER_ACTIVE_PDO = $34; // Active_PDO : 6
-  REGISTER_ACTIVE_RDO = $35; // Active_RDO : 4
-  REGISTER_AUTO_SINK  = $37;
-  REGISTER_PD_STATUS  = $40; // PD_Status  : 4
-
 var
-  FTHandle:FT_HANDLE;
   numofchannels:uint32;
   info:FT_DEVICE_LIST_INFO_NODE;
   config:FT_CHANNEL_CONFIG;
   result:FT_Result;
   Buffer:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
-  BitFields:bitpacked record
-    case integer of
-        1 : (
-             Address         : T8BITS;
-             Current         : T10BITS;
-             Voltage         : T10BITS;
-             PeakCurrent     : T2BITS;
-             Reserved1       : T3BITS;
-             DRD             : T1BITS;
-             USBCapable      : T1BITS;
-             UPower          : T1BITS;
-             USBSuspend      : T1BITS;
-             DRP             : T1BITS;
-             Fixed           : T2BITS;
-             SourcePDOFlags  : T10BITS;
-             Reserved2       : T6BITS;
-            );
-        2 : (
-             Bits            : bitpacked array[0..55] of T1BITS;
-    );
-    end absolute Buffer;
+begin
+  if NOT Assigned(FTHandle) then
+  begin
+    TButton(Sender).Enabled:=false;
+    try
+      result:=I2C_GetNumChannels(@numofchannels);
+      result:=I2C_GetChannelInfo(CHANNEL,@info);
+
+      result:=I2C_OpenChannel(CHANNEL,@FTHandle);
+
+      config.ClockRate:=I2C_CLOCK_STANDARD_MODE;
+      config.LatencyTimer:=255;
+      config.Options := 0;
+      result:=I2C_InitChannel(FTHandle,@config);
+
+      Memo1.Lines.Append('Connected');
+    finally
+      TButton(Sender).Enabled:=true;
+    end;
+
+  end;
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+var
+  result:FT_Result;
+  Buffer:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
+  PDO: USBC_SOURCE_PD_POWER_DATA_OBJECT absolute Buffer[1];
+  towrite,written:uint32;
+begin
+  if Assigned(FTHandle) then
+  begin
+    TButton(Sender).Enabled:=false;
+    try
+      towrite:=1;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      buffer[0]:=REGISTER_ACTIVE_PDO;
+      result:=I2C_DeviceWrite(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      towrite:=6;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      Memo1.Lines.Append('PDO. Current: '+InttoStr(PDO.FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
+      Memo1.Lines.Append('PDO. Voltage: '+InttoStr(PDO.FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+
+      Sleep(1000);
+
+    finally
+      TButton(Sender).Enabled:=true;
+    end;
+  end;
+end;
+
+procedure TForm1.Button3Click(Sender: TObject);
+var
+  result:FT_Result;
+  Buffer:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
+  SourcePDOs:RXSOURCEPDS absolute Buffer[1];
+  SinkPDOs:RXSINKPDS absolute Buffer[1];
   towrite,written:uint32;
   i:integer;
 begin
-  result:=I2C_GetNumChannels(@numofchannels);
-  Memo1.Lines.Append(InttoStr(result));
-  result:=I2C_GetChannelInfo(CHANNEL,@info);
-  Memo1.Lines.Append(info.Description);
-  //showmessage(inttostr(numofchannels));
-
-
-  FTHandle:=nil;
-  result:=I2C_OpenChannel(CHANNEL,@FTHandle);
-  Memo1.Lines.Append(InttoStr(result));
-
-  config.ClockRate:=I2C_CLOCK_STANDARD_MODE;
-  config.LatencyTimer:=255;
-  config.Options := 0;
-  result:=I2C_InitChannel(FTHandle,@config);
-  Memo1.Lines.Append(InttoStr(result));
-
-  towrite:=1;
-  written:=0;
-  FillChar({%H-}buffer,SizeOf(buffer),0);
-  buffer[0]:=REGISTER_ACTIVE_PDO;
-  result:=I2C_DeviceWrite(FTHandle,$21,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
-
-  towrite:=6;
-  written:=0;
-  FillChar({%H-}buffer,SizeOf(buffer),0);
-  result:=I2C_DeviceRead(FTHandle,$21,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
-
-  Memo1.Lines.Append('Data start: '+InttoStr(written));
-  for i:=0 to towrite do
+  if Assigned(FTHandle) then
   begin
-    Memo1.Lines.Append(InttoStr(buffer[i]));
+    TButton(Sender).Enabled:=false;
+    try
+      towrite:=1;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      buffer[0]:=REGISTER_RX_SOURCE_PDO;
+      result:=I2C_DeviceWrite(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      towrite:=29;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      Memo1.Lines.Append('Source PDOs: '+InttoStr(SourcePDOs.Header.NumValidPDO));
+
+      if (SourcePDOs.Header.NumValidPDO>0) then
+      begin
+        for i:=0 to Pred(SourcePDOs.Header.NumValidPDO) do
+        begin
+          Memo1.Lines.Append('Source PDO#'+InttoStr(i+1));
+          Memo1.Lines.Append('Source PDO. Type: '+SUPPLY_TYPES[SourcePDOs.RXSourcePDOs[i].GenericPdo.Supply]);
+          Memo1.Lines.Append('Source PDO. Current: '+InttoStr(SourcePDOs.RXSourcePDOs[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
+          Memo1.Lines.Append('Source PDO. Voltage: '+InttoStr(SourcePDOs.RXSourcePDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+        end;
+      end;
+
+      Sleep(1000);
+
+      towrite:=1;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      buffer[0]:=REGISTER_RX_SINK_PDO;
+      result:=I2C_DeviceWrite(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      towrite:=29;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      Memo1.Lines.Append('Sink PDOs: '+InttoStr(SinkPDOs.Header.NumValidPDO));
+
+      if (SinkPDOs.Header.NumValidPDO>0) then
+      begin
+        for i:=0 to Pred(SinkPDOs.Header.NumValidPDO) do
+        begin
+          Memo1.Lines.Append('Sink PDO#'+InttoStr(i+1));
+          Memo1.Lines.Append('Sink PDO. Type: '+SUPPLY_TYPES[SinkPDOs.RXSinkPDOs[i].GenericPdo.Supply]);
+          Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDOs.RXSinkPDOs[i].FixedSupplyPdo.OperationalCurrentIn10mA*10)+ 'mA');
+          Memo1.Lines.Append('Sink PDO. Voltage: '+InttoStr(SinkPDOs.RXSinkPDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+        end;
+      end;
+
+      Sleep(1000);
+
+    finally
+      TButton(Sender).Enabled:=true;
+    end;
   end;
-  Memo1.Lines.Append('Data end');
+end;
 
-  Memo1.Lines.Append('Current: '+InttoStr(BitFields.Current));
-  Memo1.Lines.Append('Voltage: '+InttoStr(BitFields.Voltage));
+procedure TForm1.Button4Click(Sender: TObject);
+var
+  result:FT_Result;
+  Buffer:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
+  RDO: USBC_PD_REQUEST_DATA_OBJECT absolute Buffer[1];
+  towrite,written:uint32;
+begin
+  if Assigned(FTHandle) then
+  begin
+    TButton(Sender).Enabled:=false;
+    try
+      towrite:=1;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      buffer[0]:=REGISTER_ACTIVE_RDO;
+      result:=I2C_DeviceWrite(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
 
-  result:=I2C_CloseChannel(FTHandle);
-  Memo1.Lines.Append(InttoStr(result));
+      towrite:=4;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      Memo1.Lines.Append('RDO. MaxCurrent: '+InttoStr(RDO.FixedAndVariableRdo.MaximumOperatingCurrentIn10mA*10)+ 'mA');
+      Memo1.Lines.Append('RDO. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
+
+      Sleep(1000);
+
+      towrite:=1;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      buffer[0]:=REGISTER_SINK_RDO;
+      result:=I2C_DeviceWrite(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      towrite:=4;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      Memo1.Lines.Append('RDO sink. MaxCurrent: '+InttoStr(RDO.FixedAndVariableRdo.MaximumOperatingCurrentIn10mA*10)+ 'mA');
+      Memo1.Lines.Append('RDO sink. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
+
+      Sleep(1000);
+
+    finally
+      TButton(Sender).Enabled:=true;
+    end;
+  end;
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  FTHandle:=nil;
+end;
+
+procedure TForm1.FormDestroy(Sender: TObject);
+begin
+  if Assigned(FTHandle) then I2C_CloseChannel(FTHandle);
 end;
 
 end.
