@@ -17,11 +17,13 @@ type
     Button2: TButton;
     Button3: TButton;
     Button4: TButton;
+    Button5: TButton;
     Memo1: TMemo;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
+    procedure Button5Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
@@ -352,6 +354,46 @@ type
      RXSinkPDOs          : packed array [0..6] of USBC_SINK_PD_POWER_DATA_OBJECT;
   end;
 
+  TXSOURCEPDS = packed record
+     Header: bitpacked record
+       TXSourceBank0NumPDOs         : T3BITS;
+       TXSourceBank1NumPDOs         : T3BITS;
+       Reserved                     : T2BITS;
+     end;
+     PDOsBank0: bitpacked record
+       Reserved                     : T2BITS;
+       AdvertisedPDO                : T6BITS;
+     end;
+     PDOBankSelect: bitpacked record
+       ActivePDOBank                : T1BITS;
+       ActivePDOBankExtPowered      : T1BITS;
+       Reserved                     : T6BITS;
+     end;
+     Reserved                       : byte;
+     SourceSelectionBank0: bitpacked record
+       PDO1SourceBank              : T2BITS;
+       PDO2SourceBank              : T2BITS;
+       PDO3SourceBank              : T2BITS;
+       PDO4SourceBank              : T2BITS;
+       PDO5SourceBank              : T2BITS;
+       PDO6SourceBank              : T2BITS;
+       PDO7SourceBank              : T2BITS;
+       Reserved                    : T2BITS;
+     end;
+     SourceSelectionBank1: bitpacked record
+       PDO1SourceBank              : T2BITS;
+       PDO2SourceBank              : T2BITS;
+       PDO3SourceBank              : T2BITS;
+       PDO4SourceBank              : T2BITS;
+       PDO5SourceBank              : T2BITS;
+       PDO6SourceBank              : T2BITS;
+       PDO7SourceBank              : T2BITS;
+       Reserved                    : T2BITS;
+     end;
+     TXSourcePDOsBank0          : packed array [0..6] of USBC_SOURCE_PD_POWER_DATA_OBJECT;
+     TXSourcePDOsBank1          : packed array [0..6] of USBC_SOURCE_PD_POWER_DATA_OBJECT;
+  end;
+
 
 function I2C_GetNumChannels(
   numChannels: puint32
@@ -567,6 +609,61 @@ begin
 
       Memo1.Lines.Append('RDO sink. MaxCurrent: '+InttoStr(RDO.FixedAndVariableRdo.MaximumOperatingCurrentIn10mA*10)+ 'mA');
       Memo1.Lines.Append('RDO sink. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
+
+      Sleep(1000);
+
+    finally
+      TButton(Sender).Enabled:=true;
+    end;
+  end;
+end;
+
+procedure TForm1.Button5Click(Sender: TObject);
+var
+  result:FT_Result;
+  Buffer:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
+  SourcePDS: TXSOURCEPDS absolute Buffer[1];
+  towrite,written:uint32;
+  i:integer;
+begin
+  if Assigned(FTHandle) then
+  begin
+    TButton(Sender).Enabled:=false;
+    try
+      towrite:=1;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      buffer[0]:=REGISTER_TX_SOURCE_PDO;
+      result:=I2C_DeviceWrite(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      towrite:=64;
+      written:=0;
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
+
+      Memo1.Lines.Append('Source PDOs bank 0: '+InttoStr(SourcePDS.Header.TXSourceBank0NumPDOs));
+      Memo1.Lines.Append('Source PDOs bank 1: '+InttoStr(SourcePDS.Header.TXSourceBank1NumPDOs));
+
+      if (SourcePDS.Header.TXSourceBank0NumPDOs>0) then
+      begin
+        for i:=0 to Pred(SourcePDS.Header.TXSourceBank0NumPDOs) do
+        begin
+          Memo1.Lines.Append('Source bank0 PDO#'+InttoStr(i+1));
+          Memo1.Lines.Append('Source bank0 PDO. Type: '+SUPPLY_TYPES[SourcePDS.TXSourcePDOsBank0[i].GenericPdo.Supply]);
+          Memo1.Lines.Append('Source bank0 PDO. Current: '+InttoStr(SourcePDS.TXSourcePDOsBank0[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
+          Memo1.Lines.Append('Source bank0 PDO. Voltage: '+InttoStr(SourcePDS.TXSourcePDOsBank0[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+        end;
+      end;
+      if (SourcePDS.Header.TXSourceBank1NumPDOs>0) then
+      begin
+        for i:=0 to Pred(SourcePDS.Header.TXSourceBank1NumPDOs) do
+        begin
+          Memo1.Lines.Append('Source bank1 PDO#'+InttoStr(i+1));
+          Memo1.Lines.Append('Source bank1 PDO. Type: '+SUPPLY_TYPES[SourcePDS.TXSourcePDOsBank1[i].GenericPdo.Supply]);
+          Memo1.Lines.Append('Source bank1 PDO. Current: '+InttoStr(SourcePDS.TXSourcePDOsBank1[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
+          Memo1.Lines.Append('Source bank1 PDO. Voltage: '+InttoStr(SourcePDS.TXSourcePDOsBank1[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+        end;
+      end;
 
       Sleep(1000);
 
