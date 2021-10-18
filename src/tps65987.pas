@@ -9,6 +9,9 @@ uses
   bits,libmpsse;
 
 const
+  ADDRESS_TPS65987_SINK   = $21;
+  ADDRESS_TPS65987_SOURCE = $20;
+
   SUPPLY_TYPES : array[0..3] of string = ('Fixed supply','Battery','Variable supply','Reserved');
   BOOLEAN_TYPES : array[0..1] of string = ('False','True');
 
@@ -268,6 +271,7 @@ type
 
   TTPS65987 = class(TObject)
   private
+    FAddress:byte;
     LibMPSSE:TLibMPSSE;
   public
     constructor Create;
@@ -280,26 +284,26 @@ type
     function GetSinkRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;
     function GetTXSourcePDOs(var aSourcePDOs: TXSOURCEPDS):boolean;
     function GetTXSinkPDOs(var aSinkPDOs:TXSINKPDS):boolean;
+    property Address:byte read FAddress write FAddress;
   end;
 
 implementation
 
 const
-  ADDRESS_TPS65987       = $21;
+  REGISTER_RX_SOURCE_PDO  = $30;
+  REGISTER_RX_SINK_PDO    = $31;
+  REGISTER_TX_SOURCE_PDO  = $32;
+  REGISTER_TX_SINK_PDO    = $33;
 
-  REGISTER_RX_SOURCE_PDO = $30;
-  REGISTER_RX_SINK_PDO   = $31;
-  REGISTER_TX_SOURCE_PDO = $32;
-  REGISTER_TX_SINK_PDO   = $33;
-
-  REGISTER_ACTIVE_PDO    = $34;
-  REGISTER_ACTIVE_RDO    = $35;
-  REGISTER_SINK_RDO      = $36;
-  REGISTER_AUTO_SINK     = $37;
-  REGISTER_PD_STATUS     = $40;
+  REGISTER_ACTIVE_PDO     = $34;
+  REGISTER_ACTIVE_RDO     = $35;
+  REGISTER_SINK_RDO       = $36;
+  REGISTER_AUTO_SINK      = $37;
+  REGISTER_PD_STATUS      = $40;
 
 constructor TTPS65987.Create;
 begin
+  Address:=0;
   LibMPSSE:=TLibMPSSE.Create;
 end;
 
@@ -318,64 +322,71 @@ end;
 
 function TTPS65987.ActivePDO(var aPDO:USBC_SOURCE_PD_POWER_DATA_OBJECT):boolean;
 begin
-  result:=LibMPSSE.I2C_Write(ADDRESS_TPS65987,REGISTER_ACTIVE_PDO,0,nil);
+  if (Address=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(Address,REGISTER_ACTIVE_PDO,0,nil);
   if result then
   begin
-    result:=LibMPSSE.I2C_Read(ADDRESS_TPS65987,REGISTER_ACTIVE_PDO,SizeOf(aPDO),PByte(@aPDO));
+    result:=LibMPSSE.I2C_Read(Address,REGISTER_ACTIVE_PDO,SizeOf(aPDO),PByte(@aPDO));
   end;
 end;
 
 function TTPS65987.GetSourcePDOs(var aSourcePDOs:RXSOURCEPDS):boolean;
 begin
-  result:=LibMPSSE.I2C_Write(ADDRESS_TPS65987,REGISTER_RX_SOURCE_PDO,0,nil);
+  if (Address=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(Address,REGISTER_RX_SOURCE_PDO,0,nil);
   if result then
   begin
-    result:=LibMPSSE.I2C_Read(ADDRESS_TPS65987,REGISTER_RX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
+    result:=LibMPSSE.I2C_Read(Address,REGISTER_RX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
   end;
 end;
 
 function TTPS65987.GetSinkPDOs(var aSinkPDOs:RXSINKPDS):boolean;
 begin
-  result:=LibMPSSE.I2C_Write(ADDRESS_TPS65987,REGISTER_RX_SINK_PDO,0,nil);
+  if (Address=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(Address,REGISTER_RX_SINK_PDO,0,nil);
   if result then
   begin
-    result:=LibMPSSE.I2C_Read(ADDRESS_TPS65987,REGISTER_RX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
+    result:=LibMPSSE.I2C_Read(Address,REGISTER_RX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
   end;
 end;
 
 function TTPS65987.GetActiveRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;
 begin
-  result:=LibMPSSE.I2C_Write(ADDRESS_TPS65987,REGISTER_ACTIVE_RDO,0,nil);
+  if (Address=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(Address,REGISTER_ACTIVE_RDO,0,nil);
   if result then
   begin
-    result:=LibMPSSE.I2C_Read(ADDRESS_TPS65987,REGISTER_ACTIVE_RDO,SizeOf(aRDO),PByte(@aRDO));
+    result:=LibMPSSE.I2C_Read(Address,REGISTER_ACTIVE_RDO,SizeOf(aRDO),PByte(@aRDO));
   end;
 end;
 
 function TTPS65987.GetSinkRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;
 begin
-  result:=LibMPSSE.I2C_Write(ADDRESS_TPS65987,REGISTER_SINK_RDO,0,nil);
+  if (Address=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(Address,REGISTER_SINK_RDO,0,nil);
   if result then
   begin
-    result:=LibMPSSE.I2C_Read(ADDRESS_TPS65987,REGISTER_SINK_RDO,SizeOf(aRDO),PByte(@aRDO));
+    result:=LibMPSSE.I2C_Read(Address,REGISTER_SINK_RDO,SizeOf(aRDO),PByte(@aRDO));
   end;
 end;
 
 function TTPS65987.GetTXSourcePDOs(var aSourcePDOs: TXSOURCEPDS):boolean;
 begin
-  result:=LibMPSSE.I2C_Write(ADDRESS_TPS65987,REGISTER_TX_SOURCE_PDO,0,nil);
+  if (Address=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(Address,REGISTER_TX_SOURCE_PDO,0,nil);
   if result then
   begin
-    result:=LibMPSSE.I2C_Read(ADDRESS_TPS65987,REGISTER_TX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
+    result:=LibMPSSE.I2C_Read(Address,REGISTER_TX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
   end;
 end;
 
 function TTPS65987.GetTXSinkPDOs(var aSinkPDOs:TXSINKPDS):boolean;
 begin
-  result:=LibMPSSE.I2C_Write(ADDRESS_TPS65987,REGISTER_TX_SINK_PDO,0,nil);
+  if (Address=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(Address,REGISTER_TX_SINK_PDO,0,nil);
   if result then
   begin
-    result:=LibMPSSE.I2C_Read(ADDRESS_TPS65987,REGISTER_TX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
+    result:=LibMPSSE.I2C_Read(Address,REGISTER_TX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
   end;
 end;
 

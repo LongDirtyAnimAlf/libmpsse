@@ -13,8 +13,9 @@ type
   { TForm1 }
 
   TForm1 = class(TForm)
-    btnConnect: TButton;
+    btnConnectSink: TButton;
     btnActivePDO: TButton;
+    btnConnectSource: TButton;
     btnSourcePDOs: TButton;
     btnSinkPDOs: TButton;
     btnGetRDO: TButton;
@@ -62,6 +63,8 @@ procedure TForm1.btnConnectClick(Sender: TObject);
 begin
   TButton(Sender).Enabled:=false;
   try
+    if Sender=btnConnectSink then TPS65987.Address:=ADDRESS_TPS65987_SINK;
+    if Sender=btnConnectSource then TPS65987.Address:=ADDRESS_TPS65987_SOURCE;
     if TPS65987.Init then
       Memo1.Lines.Append('Connected')
     else
