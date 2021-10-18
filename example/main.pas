@@ -81,6 +81,7 @@ const
   I2C_ENABLE_DRIVE_ONLY_ZERO               = $0002;
 
   SUPPLY_TYPES : array[0..3] of string = ('Fixed supply','Battery','Variable supply','Reserved');
+  BOOLEAN_TYPES : array[0..1] of string = ('false','true');
 
 
 type
@@ -257,10 +258,11 @@ type
           1 : (  FixedSupplyPdo : record
                    OperationalCurrentIn10mA : T10BITS;
                    VoltageIn50mV            : T10BITS;
-                   Reserved                 : T5BITS;
+                   Reserved                 : T3BITS;
+                   FastRoleSwap             : T2BITS;
                    DualRoleData             : T1BITS;
                    UsbCommunicationCapable  : T1BITS;
-                   ExternallyPowered        : T1BITS;
+                   UnconstrainedPower       : T1BITS;
                    HigherCapability         : T1BITS;
                    DualRolePower            : T1BITS;
                    FixedSupply              : T2BITS;
@@ -285,6 +287,24 @@ type
                    Supply                       : T2BITS;
                  end
                  );
+          5 : (
+               Bits            : bitpacked array[0..31] of T1BITS;
+               );
+          6 : (
+               Raw             : DWord;
+              );
+  end;
+
+  USBC_SINK_PD_POWER_DATA_OBJECT_EXTENSION = bitpacked record
+      case integer of
+          1 : (  PdoExtension : record
+                   MaxOperatingCurrentOrPower     : T10BITS;
+                   MinOperatingCurrentOrPower     : T10BITS;
+                   Reserved1                      : T10BITS;
+                   AskForMax                      : T1BITS;
+                   Reserved2                      : T1BITS;
+                 end
+              );
           5 : (
                Bits            : bitpacked array[0..31] of T1BITS;
                );
@@ -402,12 +422,7 @@ type
        Reserved                     : T5BITS;
      end;
      TXSinkPDOs                     : packed array [0..6] of USBC_SINK_PD_POWER_DATA_OBJECT;
-     MaxOperatingCurrentOrPower     : T10BITS;
-     MinOperatingCurrentOrPower     : T10BITS;
-     Reserved1                      : T1BITS;
-     AskForMax                      : T1BITS;
-     Reserved2                      : T1BITS;
-     PDOExtension                   : packed array [0..6] of USBC_PD_REQUEST_DATA_OBJECT;
+     TXSinkPDOExtensions            : packed array [0..6] of USBC_SINK_PD_POWER_DATA_OBJECT_EXTENSION;
   end;
 
 
@@ -521,7 +536,7 @@ var
   SourcePDOs:RXSOURCEPDS absolute Buffer[1];
   SinkPDOs:RXSINKPDS absolute Buffer[1];
   towrite,written:uint32;
-  i:integer;
+  i,j:integer;
 begin
   if Assigned(FTHandle) then
   begin
@@ -571,9 +586,21 @@ begin
         for i:=0 to Pred(SinkPDOs.Header.NumValidPDO) do
         begin
           Memo1.Lines.Append('Sink PDO#'+InttoStr(i+1));
-          Memo1.Lines.Append('Sink PDO. Type: '+SUPPLY_TYPES[SinkPDOs.RXSinkPDOs[i].GenericPdo.Supply]);
-          Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDOs.RXSinkPDOs[i].FixedSupplyPdo.OperationalCurrentIn10mA*10)+ 'mA');
-          Memo1.Lines.Append('Sink PDO. Voltage: '+InttoStr(SinkPDOs.RXSinkPDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+          j:=SinkPDOs.RXSinkPDOs[i].GenericPdo.Supply;
+          Memo1.Lines.Append('Sink PDO. Type: '+SUPPLY_TYPES[j]);
+
+          if j=0 then
+          begin
+            Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDOs.RXSinkPDOs[i].FixedSupplyPdo.OperationalCurrentIn10mA*10)+ 'mA');
+            Memo1.Lines.Append('Sink PDO. Voltage: '+InttoStr(SinkPDOs.RXSinkPDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+          end;
+          if j=2 then
+          begin
+            Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDOs.RXSinkPDOs[i].VariableSupplyNonBatteryPdo.OperationalCurrentIn10mA*10)+ 'mA');
+            Memo1.Lines.Append('Sink PDO. Minimum voltage: '+InttoStr(SinkPDOs.RXSinkPDOs[i].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV*50 DIV 1000)+'Volt');
+            Memo1.Lines.Append('Sink PDO. Maximum voltage: '+InttoStr(SinkPDOs.RXSinkPDOs[i].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV*50 DIV 1000)+'Volt');
+          end;
+
         end;
       end;
 
@@ -695,7 +722,8 @@ var
   Buffer:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
   SinkPDS: TXSINKPDS absolute Buffer[1];
   towrite,written:uint32;
-  i:integer;
+  i,j,Code:integer;
+  RegisterString:string;
 begin
   if Assigned(FTHandle) then
   begin
@@ -712,6 +740,18 @@ begin
       FillChar({%H-}buffer,SizeOf(buffer),0);
       result:=I2C_DeviceRead(FTHandle,ADDRESS_TPS65987,towrite,@buffer[0],@written,I2C_TRANSFER_OPTIONS_START_BIT);
 
+      FillChar({%H-}buffer,SizeOf(buffer),0);
+      RegisterString:='$4001692c4001692c0001692c0001692c0000000000000000000000009905552c9543752c8dc1e12c0001912c04';
+      //RegisterString:='$4001692c4001692c0001692c0001692c';
+      i:=0;
+      while (true) do
+      begin
+        Val('$'+Copy(RegisterString,Length(RegisterString)-i-1,2),buffer[(i DIV 2)+1]);
+        //Memo1.Lines.Append('Data ['+InttoStr((i DIV 2))+']: '+InttoStr(buffer[(i DIV 2)+1]));
+        Inc(i,2);
+        if (i>Length(RegisterString)) then break;
+      end;
+
       Memo1.Lines.Append('Sink PDOs: '+InttoStr(SinkPDS.Header.TXSinkNumValidPDOs));
 
       if (SinkPDS.Header.TXSinkNumValidPDOs>0) then
@@ -719,9 +759,25 @@ begin
         for i:=0 to Pred(SinkPDS.Header.TXSinkNumValidPDOs) do
         begin
           Memo1.Lines.Append('Sink PDO#'+InttoStr(i+1));
-          Memo1.Lines.Append('Sink PDO. Type: '+SUPPLY_TYPES[SinkPDS.TXSinkPDOs[i].GenericPdo.Supply]);
-          Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDS.TXSinkPDOs[i].FixedSupplyPdo.OperationalCurrentIn10mA*10)+ 'mA');
-          Memo1.Lines.Append('Sink PDO. Voltage: '+InttoStr(SinkPDS.TXSinkPDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+
+          j:=SinkPDS.TXSinkPDOs[i].GenericPdo.Supply;
+          Memo1.Lines.Append('Sink PDO. Type: '+SUPPLY_TYPES[j]);
+
+          if j=0 then
+          begin
+            Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDS.TXSinkPDOs[i].FixedSupplyPdo.OperationalCurrentIn10mA*10)+ 'mA');
+            Memo1.Lines.Append('Sink PDO. Voltage: '+InttoStr(SinkPDS.TXSinkPDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+          end;
+          if j=2 then
+          begin
+            Memo1.Lines.Append('Sink PDO. Current: '+InttoStr(SinkPDS.TXSinkPDOs[i].VariableSupplyNonBatteryPdo.OperationalCurrentIn10mA*10)+ 'mA');
+            Memo1.Lines.Append('Sink PDO. Minimum voltage: '+InttoStr(SinkPDS.TXSinkPDOs[i].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV*50 DIV 1000)+'Volt');
+            Memo1.Lines.Append('Sink PDO. Maximum voltage: '+InttoStr(SinkPDS.TXSinkPDOs[i].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV*50 DIV 1000)+'Volt');
+          end;
+
+          Memo1.Lines.Append('Sink PDO. Maximum current: '+InttoStr(SinkPDS.TXSinkPDOExtensions[i].PdoExtension.MaxOperatingCurrentOrPower*10));
+          Memo1.Lines.Append('Sink PDO. Operating current: '+InttoStr(SinkPDS.TXSinkPDOExtensions[i].PdoExtension.MinOperatingCurrentOrPower*10));
+          Memo1.Lines.Append('Sink PDO. Ask for max: '+BOOLEAN_TYPES[SinkPDS.TXSinkPDOExtensions[i].PdoExtension.AskForMax]);
         end;
       end;
 

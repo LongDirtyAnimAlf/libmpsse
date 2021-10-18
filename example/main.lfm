@@ -2,10 +2,10 @@ object Form1: TForm1
   Left = 259
   Height = 422
   Top = 119
-  Width = 689
+  Width = 828
   Caption = 'Form1'
   ClientHeight = 422
-  ClientWidth = 689
+  ClientWidth = 828
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   LCLVersion = '2.3.0.0'
@@ -22,7 +22,7 @@ object Form1: TForm1
     Left = 336
     Height = 374
     Top = 20
-    Width = 330
+    Width = 469
     Anchors = [akTop, akLeft, akRight, akBottom]
     Lines.Strings = (
       'Memo1'
@@ -44,7 +44,7 @@ object Form1: TForm1
     Height = 64
     Top = 152
     Width = 113
-    Caption = 'Get PDOs'
+    Caption = 'Get PDOs from device'
     OnClick = Button3Click
     TabOrder = 3
   end

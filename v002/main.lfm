@@ -1,0 +1,87 @@
+object Form1: TForm1
+  Left = 298
+  Height = 422
+  Top = 124
+  Width = 828
+  Caption = 'Form1'
+  ClientHeight = 422
+  ClientWidth = 828
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  LCLVersion = '2.3.0.0'
+  object btnConnect: TButton
+    Left = 17
+    Height = 60
+    Top = 16
+    Width = 113
+    Caption = 'Connect'
+    OnClick = btnConnectClick
+    TabOrder = 0
+  end
+  object Memo1: TMemo
+    Left = 336
+    Height = 374
+    Top = 20
+    Width = 469
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    Lines.Strings = (
+      'Memo1'
+    )
+    ScrollBars = ssAutoVertical
+    TabOrder = 1
+  end
+  object btnActivePDO: TButton
+    Left = 17
+    Height = 54
+    Top = 88
+    Width = 113
+    Caption = 'Active PDO'
+    OnClick = btnActivePDOClick
+    TabOrder = 2
+  end
+  object btnSourcePDOs: TButton
+    Left = 20
+    Height = 52
+    Top = 154
+    Width = 105
+    Caption = 'Get Source PDOs'
+    OnClick = btnSourcePDOsClick
+    TabOrder = 3
+  end
+  object btnSinkPDOs: TButton
+    Left = 152
+    Height = 50
+    Top = 154
+    Width = 94
+    Caption = 'Get Sink PDOs'
+    OnClick = btnSinkPDOsClick
+    TabOrder = 4
+  end
+  object btnGetRDO: TButton
+    Left = 160
+    Height = 58
+    Top = 88
+    Width = 106
+    Caption = 'Get RDO'
+    OnClick = btnGetRDOClick
+    TabOrder = 5
+  end
+  object btnGetTXSourcePDOs: TButton
+    Left = 24
+    Height = 51
+    Top = 257
+    Width = 103
+    Caption = 'Get TX Source PDOs'
+    OnClick = btnGetTXSourcePDOsClick
+    TabOrder = 6
+  end
+  object btnGetTXSinkPDOs: TButton
+    Left = 155
+    Height = 38
+    Top = 260
+    Width = 102
+    Caption = 'Get TX Sink PDOs'
+    OnClick = btnGetTXSinkPDOsClick
+    TabOrder = 7
+  end
+end
