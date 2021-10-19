@@ -11,8 +11,8 @@ object Form1: TForm1
   LCLVersion = '2.3.0.0'
   object Memo1: TMemo
     Left = 336
-    Height = 196
-    Top = 312
+    Height = 244
+    Top = 264
     Width = 1066
     Anchors = [akTop, akLeft, akRight, akBottom]
     Lines.Strings = (
@@ -219,57 +219,6 @@ object Form1: TForm1
       BorderSpacing.Bottom = 4
       TabOrder = 3
     end
-  end
-  object Button2: TButton
-    Left = 176
-    Height = 46
-    Top = 192
-    Width = 121
-    Caption = '12V'
-    OnClick = Button2Click
-    TabOrder = 12
-  end
-  object Button3: TButton
-    Left = 360
-    Height = 61
-    Top = 192
-    Width = 143
-    Caption = '20V'
-    OnClick = Button3Click
-    TabOrder = 13
-  end
-  object btn9V: TButton
-    Left = 24
-    Height = 38
-    Top = 195
-    Width = 115
-    Caption = '9V'
-    OnClick = btn9VClick
-    TabOrder = 14
-  end
-  object Button1: TButton
-    Left = 678
-    Height = 42
-    Top = 220
-    Width = 108
-    Caption = 'Button1'
-    OnClick = Button1Click
-    TabOrder = 15
-  end
-  object DrawGrid1: TDrawGrid
-    Left = 1097
-    Height = 126
-    Top = 177
-    Width = 283
-    ExtendedSelect = False
-    TabOrder = 16
-  end
-  object SpeedButton1: TSpeedButton
-    Left = 907
-    Height = 48
-    Top = 227
-    Width = 157
-    Caption = 'gdgsfgsdfgsfg'
   end
   object Timer1: TTimer
     Enabled = False
