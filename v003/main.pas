@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  Grids, tps65987, dsleds;
+  Grids, Buttons, tps65987, dsleds, Types;
 
 type
 
@@ -21,12 +21,12 @@ type
     btnGetRDO: TButton;
     btnGetTXSourcePDOs: TButton;
     btnGetTXSinkPDOs: TButton;
-    btnReadPortConfig: TButton;
-    btnWritePortConfig: TButton;
     btnDisConnect: TButton;
+    btn9V: TButton;
     Button1: TButton;
     Button2: TButton;
     Button3: TButton;
+    DrawGrid1: TDrawGrid;
     editPowerStatusUSBCurrent: TEdit;
     gridRemotePDO: TStringGrid;
     GroupBox1: TGroupBox;
@@ -37,17 +37,17 @@ type
     memoPowerStatusChargerDetectStatus: TMemo;
     rbSource: TRadioButton;
     rbSink: TRadioButton;
+    SpeedButton1: TSpeedButton;
     Timer1: TTimer;
+    procedure btn9VClick(Sender: TObject);
     procedure btnDisConnectClick(Sender: TObject);
     procedure btnGetRDOClick(Sender: TObject);
     procedure btnGetTXSinkPDOsClick(Sender: TObject);
     procedure btnGetTXSourcePDOsClick(Sender: TObject);
-    procedure btnReadPortConfigClick(Sender: TObject);
     procedure btnSinkPDOsClick(Sender: TObject);
     procedure btnConnectClick(Sender: TObject);
     procedure btnActivePDOClick(Sender: TObject);
     procedure btnSourcePDOsClick(Sender: TObject);
-    procedure btnWritePortConfigClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
@@ -61,6 +61,7 @@ type
 
     VoltageDisplay      : TdsSevenSegmentMultiDisplay;
     CurrentDisplay      : TdsSevenSegmentMultiDisplay;
+    procedure GridButtonClick(Sender: TObject);
   public
 
   end;
@@ -87,11 +88,67 @@ end;
 
 { TForm1 }
 
+procedure TForm1.GridButtonClick(Sender: TObject);
+var
+  Button: TButton absolute Sender;
+  SinkPDS: TXSINKPDS;
+  s:string;
+  Voltage:integer;
+  Current:integer;
+begin
+  Memo1.Lines.Append(Button.Name);
+  TButton(Sender).Enabled:=false;
+  try
+    s:=gridRemotePDO.Cells[Button.Tag,3];
+    s:=StringReplace(s,'Volt','',[]);
+    Val(s,Voltage);
+
+    s:=gridRemotePDO.Cells[Button.Tag,2];
+    s:=StringReplace(s,'mA','',[]);
+    Val(s,Current);
+
+    FillChar({%H-}SinkPDS,SizeOf(SinkPDS),0);
+
+    SinkPDS.Header.TXSinkNumValidPDOs:=2;
+
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=0;
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.OperationalCurrentIn10mA:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.VoltageIn50mV:=(5000 DIV 50);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
+
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=2;
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=round(((Voltage-1)*1000/50));
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=round(((Voltage+1)*1000/50));
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(Current DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(Current DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.AskForMax:=1;
+
+    if TPS65987.SetTXSinkPDOs(SinkPDS) then
+    begin
+      if TPS65987.SendCommand('ANeg') then
+      begin
+        Memo1.Lines.Append('Command set success !');
+      end;
+    end;
+    Timer1Timer(nil);
+    Sleep(SLEEP_DURATION);
+  finally
+    TButton(Sender).Enabled:=true;
+  end;
+end;
+
 procedure TForm1.FormCreate(Sender: TObject);
+var
+  bt : TButton;
+  Rect : TRect;
+  index : Integer;
+  ACol : Integer;
+  ARow : Integer;
 begin
   gridRemotePDO.Cells[0,1]:='Type';
-  gridRemotePDO.Cells[0,2]:='Voltage';
-  gridRemotePDO.Cells[0,3]:='Current';
+  gridRemotePDO.Cells[0,2]:='Current';
+  gridRemotePDO.Cells[0,3]:='Voltage';
 
   VoltageDisplay:=TdsSevenSegmentMultiDisplay.Create(grpActivePDO);
   with VoltageDisplay do
@@ -108,6 +165,66 @@ begin
     OffColor:=ChangeBrightness(OnColor,0.1);
   end;
 
+  ACol := 1;
+  ARow := 4;
+  Rect := gridRemotePDO.CellRect(ACol,ARow);
+  bt := TButton.Create(gridRemotePDO);
+  bt.Parent := gridRemotePDO;
+  bt.Width := Rect.Width-4;
+  bt.Top := Rect.Top+1;
+  bt.Left := Rect.Left+2;
+  bt.Height := Rect.Height-3;
+  bt.Caption := 'Select';
+  bt.Name := 'bt'+IntToStr(ACol);
+  bt.Tag := ACol;
+  index := gridRemotePDO.ComponentCount-1;
+  bt :=(gridRemotePDO.Components[index] as TButton);
+  gridRemotePDO.Objects[ACol,ARow] := gridRemotePDO.Components[index];
+  bt.OnMouseUp := gridRemotePDO.OnMouseUp;
+  bt.OnMouseMove := gridRemotePDO.OnMouseMove;
+  bt.Visible := true;
+  bt.OnClick:=@GridButtonClick;
+
+  ACol := 2;
+  ARow := 4;
+  Rect := gridRemotePDO.CellRect(ACol,ARow);
+  bt := TButton.Create(gridRemotePDO);
+  bt.Parent := gridRemotePDO;
+  bt.Width := Rect.Width-4;
+  bt.Top := Rect.Top+1;
+  bt.Left := Rect.Left+2;
+  bt.Height := Rect.Height-3;
+  bt.Caption := 'Select';
+  bt.Name := 'bt'+IntToStr(ACol);
+  bt.Tag := ACol;
+  index := gridRemotePDO.ComponentCount-1;
+  bt :=(gridRemotePDO.Components[index] as TButton);
+  gridRemotePDO.Objects[ACol,ARow] := gridRemotePDO.Components[index];
+  bt.OnMouseUp := gridRemotePDO.OnMouseUp;
+  bt.OnMouseMove := gridRemotePDO.OnMouseMove;
+  bt.Visible := true;
+  bt.OnClick:=@GridButtonClick;
+
+  ACol := 3;
+  ARow := 4;
+  Rect := gridRemotePDO.CellRect(ACol,ARow);
+  bt := TButton.Create(gridRemotePDO);
+  bt.Parent := gridRemotePDO;
+  bt.Width := Rect.Width-4;
+  bt.Top := Rect.Top+1;
+  bt.Left := Rect.Left+2;
+  bt.Height := Rect.Height-3;
+  bt.Caption := 'Select';
+  bt.Name := 'bt'+IntToStr(ACol);
+  bt.Tag := ACol;
+  index := gridRemotePDO.ComponentCount-1;
+  bt :=(gridRemotePDO.Components[index] as TButton);
+  gridRemotePDO.Objects[ACol,ARow] := gridRemotePDO.Components[index];
+  bt.OnMouseUp := gridRemotePDO.OnMouseUp;
+  bt.OnMouseMove := gridRemotePDO.OnMouseMove;
+  bt.Visible := true;
+  bt.OnClick:=@GridButtonClick;
+
   TPS65987:=TTPS65987.Create;
 end;
 
@@ -118,6 +235,7 @@ begin
     TPS65987.Free;
   end;
 end;
+
 
 procedure TForm1.grpActivePDOResize(Sender: TObject);
 begin
@@ -149,6 +267,8 @@ begin
 
   if (Status.PowerConnection=1) then
   begin
+    Timer1.Enabled:=False;
+
     editPowerStatusUSBCurrent.Text:=POWER_STATUS_CURRENT_DETAILS[Status.TypeCCurrent];
     memoPowerStatusChargerDetectStatus.Text:=CHARGER_DETECT_STATUS[Status.ChargerDetectStatus];
 
@@ -206,6 +326,7 @@ begin
     CurrentDisplay.Value:=0;
     rbSink.Checked:=false;
     rbSource.Checked:=false;
+    Timer1.Enabled:=True;
   end;
 
   while (i<Pred(gridRemotePDO.ColCount)) do
@@ -228,7 +349,7 @@ begin
       if Sender=btnConnectSink then TPS65987.Address:=ADDRESS_TPS65987_SINK;
       if Sender=btnConnectSource then TPS65987.Address:=ADDRESS_TPS65987_SOURCE;
       Memo1.Lines.Append('Connected');
-      //Timer1.Enabled:=True;
+      Timer1.Enabled:=True;
     end
     else
       Memo1.Lines.Append('Connect failure');
@@ -316,6 +437,43 @@ begin
     TButton(Sender).Enabled:=true;
   end;
 
+end;
+
+procedure TForm1.btn9VClick(Sender: TObject);
+var
+  SinkPDS: TXSINKPDS;
+begin
+  TButton(Sender).Enabled:=false;
+  try
+    FillChar({%H-}SinkPDS,SizeOf(SinkPDS),0);
+
+    SinkPDS.Header.TXSinkNumValidPDOs:=2;
+
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=0;
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.OperationalCurrentIn10mA:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.VoltageIn50mV:=(5000 DIV 50);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
+
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=2;
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=(8000 DIV 50);
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=(10000 DIV 50);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.AskForMax:=1;
+
+    if TPS65987.SetTXSinkPDOs(SinkPDS) then
+    begin
+      if TPS65987.SendCommand('ANeg') then
+      begin
+        Memo1.Lines.Append('Command set success !');
+      end;
+    end;
+    Timer1Timer(nil);
+    Sleep(SLEEP_DURATION);
+  finally
+    TButton(Sender).Enabled:=true;
+  end;
 end;
 
 procedure TForm1.btnGetTXSinkPDOsClick(Sender: TObject);
@@ -451,58 +609,14 @@ begin
   end;
 end;
 
-procedure TForm1.btnReadPortConfigClick(Sender: TObject);
-begin
-  TButton(Sender).Enabled:=false;
-  try
-    FillChar({%H-}PC,SizeOf(PC),0);
-    if TPS65987.GetPortConfig(PC) then
-    begin
-      Memo1.Lines.Append('PC. State: '+InttoStr(PC.TypeCStateMachine));
-      Memo1.Lines.Append('PC. Plug type: '+InttoStr(PC.ReceptacleType));
-      Memo1.Lines.Append('PC. Audio: '+InttoStr(PC.AudioAccessorySupport));
-      Memo1.Lines.Append('PC. Voltage: '+InttoStr(PC.VoltageThresAsSinkContract*200 DIV 1000));
-      Memo1.Lines.Append('PC. Power: '+InttoStr(PC.PowerThresAsSourceContract*500 DIV 1000));
-    end;
-    Sleep(SLEEP_DURATION);
-  finally
-    TButton(Sender).Enabled:=true;
-  end;
-end;
-
-procedure TForm1.btnWritePortConfigClick(Sender: TObject);
-begin
-  TButton(Sender).Enabled:=false;
-  try
-    if TPS65987.SendCommand('ANeg') then
-    begin
-      Memo1.Lines.Append('Command set success !');
-    end;
-    Sleep(SLEEP_DURATION);
-  finally
-    TButton(Sender).Enabled:=true;
-  end;
-end;
-
 procedure TForm1.Button1Click(Sender: TObject);
 begin
-  TButton(Sender).Enabled:=false;
-  try
-    if TPS65987.SendCommand('DISC') then
-    begin
-      Memo1.Lines.Append('Command set success !');
-    end;
-    Sleep(SLEEP_DURATION);
-  finally
-    TButton(Sender).Enabled:=true;
-  end;
-
+  gridRemotePDO.Cells[0,0]:=gridRemotePDO.Objects[0,0].ClassName;
 end;
 
 procedure TForm1.Button2Click(Sender: TObject);
 var
   SinkPDS: TXSINKPDS;
-  i:integer;
 begin
   TButton(Sender).Enabled:=false;
   try
@@ -510,20 +624,27 @@ begin
 
     SinkPDS.Header.TXSinkNumValidPDOs:=2;
 
-    SinkPDS.TXSinkPDOs[0].Raw:=$0001912c;
-    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=$12c;
-    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=$5a;
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=0;
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.OperationalCurrentIn10mA:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.VoltageIn50mV:=(5000 DIV 50);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
 
-    SinkPDS.TXSinkPDOs[1].Raw:=$8dc1e12c;
-    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=(11*1000 DIV 50);
-    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=(13*1000 DIV 50);
-    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=$12c;
-    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=$5a;
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=2;
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=(11000 DIV 50);
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=(13000 DIV 50);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.AskForMax:=1;
 
-    //SourcePDS.raw:=$4001692c0001692c00000000000000000000000000000000;
     if TPS65987.SetTXSinkPDOs(SinkPDS) then
     begin
+      if TPS65987.SendCommand('ANeg') then
+      begin
+        Memo1.Lines.Append('Command set success !');
+      end;
     end;
+    Timer1Timer(nil);
     Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
@@ -533,7 +654,6 @@ end;
 procedure TForm1.Button3Click(Sender: TObject);
 var
   SinkPDS: TXSINKPDS;
-  i:integer;
 begin
   TButton(Sender).Enabled:=false;
   try
@@ -541,20 +661,27 @@ begin
 
     SinkPDS.Header.TXSinkNumValidPDOs:=2;
 
-    SinkPDS.TXSinkPDOs[0].Raw:=$0001912c;
-    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=$12c;
-    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=$5a;
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=0;
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.OperationalCurrentIn10mA:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.VoltageIn50mV:=(5000 DIV 50);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
 
-    SinkPDS.TXSinkPDOs[1].Raw:=$8dc1e12c;
-    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=(19*1000 DIV 50);
-    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=(21*1000 DIV 50);
-    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=$12c;
-    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=$5a;
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=2;
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=(19000 DIV 50);
+    SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=(21000 DIV 50);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.AskForMax:=1;
 
-    //SourcePDS.raw:=$4001692c0001692c00000000000000000000000000000000;
     if TPS65987.SetTXSinkPDOs(SinkPDS) then
     begin
+      if TPS65987.SendCommand('ANeg') then
+      begin
+        Memo1.Lines.Append('Command set success !');
+      end;
     end;
+    Timer1Timer(nil);
     Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;

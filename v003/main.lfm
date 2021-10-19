@@ -22,27 +22,27 @@ object Form1: TForm1
     TabOrder = 0
   end
   object btnActivePDO: TButton
-    Left = 8
+    Left = 10
     Height = 54
-    Top = 216
+    Top = 272
     Width = 113
     Caption = 'Active PDO'
     OnClick = btnActivePDOClick
     TabOrder = 1
   end
   object btnSourcePDOs: TButton
-    Left = 8
+    Left = 10
     Height = 52
-    Top = 280
+    Top = 336
     Width = 105
     Caption = 'Get Source PDOs'
     OnClick = btnSourcePDOsClick
     TabOrder = 2
   end
   object btnSinkPDOs: TButton
-    Left = 141
+    Left = 129
     Height = 50
-    Top = 282
+    Top = 338
     Width = 94
     Caption = 'Get Sink PDOs'
     OnClick = btnSinkPDOsClick
@@ -50,48 +50,30 @@ object Form1: TForm1
   end
   object btnGetRDO: TButton
     Left = 129
-    Height = 58
-    Top = 216
-    Width = 106
+    Height = 50
+    Top = 280
+    Width = 98
     Caption = 'Get RDO'
     OnClick = btnGetRDOClick
     TabOrder = 4
   end
   object btnGetTXSourcePDOs: TButton
-    Left = 8
+    Left = 10
     Height = 51
-    Top = 336
+    Top = 408
     Width = 103
     Caption = 'Get TX Source PDOs'
     OnClick = btnGetTXSourcePDOsClick
     TabOrder = 5
   end
   object btnGetTXSinkPDOs: TButton
-    Left = 133
-    Height = 38
-    Top = 349
+    Left = 130
+    Height = 51
+    Top = 408
     Width = 102
     Caption = 'Get TX Sink PDOs'
     OnClick = btnGetTXSinkPDOsClick
     TabOrder = 6
-  end
-  object btnReadPortConfig: TButton
-    Left = 8
-    Height = 40
-    Top = 400
-    Width = 95
-    Caption = 'Read PortConfig'
-    OnClick = btnReadPortConfigClick
-    TabOrder = 7
-  end
-  object btnWritePortConfig: TButton
-    Left = 824
-    Height = 37
-    Top = 240
-    Width = 113
-    Caption = 'Write PortConfig'
-    OnClick = btnWritePortConfigClick
-    TabOrder = 8
   end
   object btnDisConnect: TButton
     Left = 8
@@ -100,16 +82,7 @@ object Form1: TForm1
     Width = 224
     Caption = 'DisConnect Device'
     OnClick = btnDisConnectClick
-    TabOrder = 9
-  end
-  object Button1: TButton
-    Left = 256
-    Height = 31
-    Top = 448
-    Width = 55
-    Caption = 'Button1'
-    OnClick = Button1Click
-    TabOrder = 10
+    TabOrder = 7
   end
   object grpActivePDO: TGroupBox
     Left = 920
@@ -117,7 +90,7 @@ object Form1: TForm1
     Top = 8
     Width = 456
     Caption = 'Active PDO'
-    TabOrder = 11
+    TabOrder = 8
     OnResize = grpActivePDOResize
   end
   object grpAllPDO: TGroupBox
@@ -129,17 +102,28 @@ object Form1: TForm1
     Caption = 'Available PDOs'
     ClientHeight = 132
     ClientWidth = 532
-    TabOrder = 12
+    TabOrder = 9
     object gridRemotePDO: TStringGrid
       Left = 6
       Height = 120
       Top = 6
       Width = 520
       Align = alClient
+      AutoEdit = False
       BorderSpacing.Around = 6
       ColCount = 8
       Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goDrawFocusSelected]
       TabOrder = 0
+      ColWidths = (
+        64
+        64
+        64
+        64
+        64
+        64
+        64
+        68
+      )
     end
   end
   object GroupBox1: TGroupBox
@@ -150,7 +134,7 @@ object Form1: TForm1
     Caption = 'GroupBox1'
     ClientHeight = 132
     ClientWidth = 132
-    TabOrder = 13
+    TabOrder = 10
     object btnConnectSink: TButton
       Left = 8
       Height = 44
@@ -178,7 +162,7 @@ object Form1: TForm1
     Caption = 'Power Status'
     ClientHeight = 132
     ClientWidth = 197
-    TabOrder = 14
+    TabOrder = 11
     object editPowerStatusUSBCurrent: TEdit
       AnchorSideLeft.Control = grpPowerStatus
       AnchorSideTop.Control = grpPowerStatus
@@ -237,28 +221,61 @@ object Form1: TForm1
     end
   end
   object Button2: TButton
-    Left = 290
+    Left = 176
     Height = 46
-    Top = 228
+    Top = 192
     Width = 121
-    Caption = 'Button2'
+    Caption = '12V'
     OnClick = Button2Click
-    TabOrder = 15
+    TabOrder = 12
   end
   object Button3: TButton
-    Left = 465
+    Left = 360
     Height = 61
-    Top = 225
+    Top = 192
     Width = 143
-    Caption = 'Button3'
+    Caption = '20V'
     OnClick = Button3Click
+    TabOrder = 13
+  end
+  object btn9V: TButton
+    Left = 24
+    Height = 38
+    Top = 195
+    Width = 115
+    Caption = '9V'
+    OnClick = btn9VClick
+    TabOrder = 14
+  end
+  object Button1: TButton
+    Left = 678
+    Height = 42
+    Top = 220
+    Width = 108
+    Caption = 'Button1'
+    OnClick = Button1Click
+    TabOrder = 15
+  end
+  object DrawGrid1: TDrawGrid
+    Left = 1097
+    Height = 126
+    Top = 177
+    Width = 283
+    ExtendedSelect = False
     TabOrder = 16
+  end
+  object SpeedButton1: TSpeedButton
+    Left = 907
+    Height = 48
+    Top = 227
+    Width = 157
+    Caption = 'gdgsfgsdfgsfg'
   end
   object Timer1: TTimer
     Enabled = False
     Interval = 200
     OnTimer = Timer1Timer
-    Left = 128
-    Top = 168
+    Left = 400
+    Top = 360
   end
 end
