@@ -44,6 +44,9 @@ implementation
 
 {$R *.lfm}
 
+const
+  SLEEP_DURATION          = 25;
+
 { TForm1 }
 
 procedure TForm1.FormCreate(Sender: TObject);
@@ -63,10 +66,12 @@ procedure TForm1.btnConnectClick(Sender: TObject);
 begin
   TButton(Sender).Enabled:=false;
   try
-    if Sender=btnConnectSink then TPS65987.Address:=ADDRESS_TPS65987_SINK;
-    if Sender=btnConnectSource then TPS65987.Address:=ADDRESS_TPS65987_SOURCE;
     if TPS65987.Init then
-      Memo1.Lines.Append('Connected')
+    begin
+      if Sender=btnConnectSink then TPS65987.Address:=ADDRESS_TPS65987_SINK;
+      if Sender=btnConnectSource then TPS65987.Address:=ADDRESS_TPS65987_SOURCE;
+      Memo1.Lines.Append('Connected');
+    end
     else
       Memo1.Lines.Append('Connect failure');
   finally
@@ -124,7 +129,7 @@ begin
       Memo1.Lines.Append('RDO. MaxCurrent: '+InttoStr(RDO.FixedAndVariableRdo.MaximumOperatingCurrentIn10mA*10)+ 'mA');
       Memo1.Lines.Append('RDO. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
     end;
-    Sleep(1000);
+    Sleep(SLEEP_DURATION);
 
     FillChar({%H-}RDO,SizeOf(RDO),0);
     if TPS65987.GetSinkRDO(RDO) then
@@ -132,7 +137,7 @@ begin
       Memo1.Lines.Append('RDO sink. MaxCurrent: '+InttoStr(RDO.FixedAndVariableRdo.MaximumOperatingCurrentIn10mA*10)+ 'mA');
       Memo1.Lines.Append('RDO sink. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
     end;
-    Sleep(1000);
+    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
   end;
@@ -179,7 +184,7 @@ begin
       end;
 
     end;
-    Sleep(1000);
+    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
   end;
@@ -219,7 +224,7 @@ begin
         end;
       end;
     end;
-    Sleep(1000);
+    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
   end;
@@ -237,7 +242,7 @@ begin
       Memo1.Lines.Append('PDO. Current: '+InttoStr(PDO.FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
       Memo1.Lines.Append('PDO. Voltage: '+InttoStr(PDO.FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
     end;
-    Sleep(1000);
+    Sleep(SLEEP_DURATION);
 
   finally
     TButton(Sender).Enabled:=true;
@@ -266,7 +271,7 @@ begin
         end;
       end;
     end;
-    Sleep(1000);
+    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
   end;

@@ -162,8 +162,9 @@ begin
     result:=(I2C_OpenChannel(Channel,@Handle)=Ord(FT_OK));
     if result then
     begin
-      config.ClockRate:=I2C_CLOCK_STANDARD_MODE;
-      config.LatencyTimer:=255;
+      //config.ClockRate:=I2C_CLOCK_STANDARD_MODE;
+      config.ClockRate:=I2C_CLOCK_FAST_MODE;
+      config.LatencyTimer:=25;
       config.Options := 0;
       result:=(I2C_InitChannel(Handle,@config)=Ord(FT_OK));
     end;
@@ -199,7 +200,7 @@ begin
     NumBytesReturned:=0;
     FillChar({%H-}buf,SizeOf(buf),0);
     buf[0]:=DeviceRegister;
-    result:=(I2C_DeviceRead(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,I2C_TRANSFER_OPTIONS_START_BIT)=Ord(FT_OK));
+    result:=(I2C_DeviceRead(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_NACK_LAST_BYTE)=Ord(FT_OK));
     Move(buf[1],buffer^,ToRead);
   end;
 end;
