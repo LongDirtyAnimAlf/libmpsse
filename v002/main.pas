@@ -21,18 +21,27 @@ type
     btnGetRDO: TButton;
     btnGetTXSourcePDOs: TButton;
     btnGetTXSinkPDOs: TButton;
+    btnReadPortConfig: TButton;
+    btnWritePortConfig: TButton;
+    btnDisConnect: TButton;
+    Button1: TButton;
     Memo1: TMemo;
+    procedure btnDisConnectClick(Sender: TObject);
     procedure btnGetRDOClick(Sender: TObject);
     procedure btnGetTXSinkPDOsClick(Sender: TObject);
     procedure btnGetTXSourcePDOsClick(Sender: TObject);
+    procedure btnReadPortConfigClick(Sender: TObject);
     procedure btnSinkPDOsClick(Sender: TObject);
     procedure btnConnectClick(Sender: TObject);
     procedure btnActivePDOClick(Sender: TObject);
     procedure btnSourcePDOsClick(Sender: TObject);
+    procedure btnWritePortConfigClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
     TPS65987:TTPS65987;
+    PC: PortConfiguration;
   public
 
   end;
@@ -138,6 +147,22 @@ begin
       Memo1.Lines.Append('RDO sink. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
     end;
     Sleep(SLEEP_DURATION);
+  finally
+    TButton(Sender).Enabled:=true;
+  end;
+
+end;
+
+procedure TForm1.btnDisConnectClick(Sender: TObject);
+begin
+  TButton(Sender).Enabled:=false;
+  try
+    if TPS65987.DisConnect then
+    begin
+      Memo1.Lines.Append('Disconnected');
+    end
+    else
+      Memo1.Lines.Append('Disconnect failure');
   finally
     TButton(Sender).Enabled:=true;
   end;
@@ -275,6 +300,58 @@ begin
   finally
     TButton(Sender).Enabled:=true;
   end;
+end;
+
+procedure TForm1.btnReadPortConfigClick(Sender: TObject);
+begin
+  TButton(Sender).Enabled:=false;
+  try
+    FillChar({%H-}PC,SizeOf(PC),0);
+    if TPS65987.GetPortConfig(PC) then
+    begin
+      Memo1.Lines.Append('PC. State: '+InttoStr(PC.TypeCStateMachine));
+      Memo1.Lines.Append('PC. Plug type: '+InttoStr(PC.ReceptacleType));
+      Memo1.Lines.Append('PC. Audio: '+InttoStr(PC.AudioAccessorySupport));
+      Memo1.Lines.Append('PC. Voltage: '+InttoStr(PC.VoltageThresAsSinkContract*200 DIV 1000));
+      Memo1.Lines.Append('PC. Power: '+InttoStr(PC.PowerThresAsSourceContract*500 DIV 1000));
+      Memo1.Lines.Append('PC. Raw: '+InttoStr(PC.Raw));
+      Memo1.Lines.Append('PC. Raw [hex]: '+IntToHex(PC.Raw));
+    end;
+    Sleep(SLEEP_DURATION);
+  finally
+    TButton(Sender).Enabled:=true;
+  end;
+end;
+
+procedure TForm1.btnWritePortConfigClick(Sender: TObject);
+begin
+  TButton(Sender).Enabled:=false;
+  try
+    if TPS65987.SetPortConfig(PC) then
+    begin
+      Memo1.Lines.Append('PC. Raw: '+InttoStr(PC.Raw));
+      Memo1.Lines.Append('PC set success !');
+      Memo1.Lines.Append('PC. Audio: '+InttoStr(PC.AudioAccessorySupport));
+    end;
+    Sleep(SLEEP_DURATION);
+  finally
+    TButton(Sender).Enabled:=true;
+  end;
+end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+begin
+  TButton(Sender).Enabled:=false;
+  try
+    if TPS65987.SendCommand('GAID') then
+    begin
+      Memo1.Lines.Append('Command set success !');
+    end;
+    Sleep(SLEEP_DURATION);
+  finally
+    TButton(Sender).Enabled:=true;
+  end;
+
 end;
 
 end.

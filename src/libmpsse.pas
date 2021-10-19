@@ -18,6 +18,7 @@ type
     constructor Create;
     destructor Destroy;override;
     function I2C_Init(Channel:word):boolean;
+    function I2C_Close:boolean;
     function I2C_Write(DeviceAddress,DeviceRegister:Byte;ToWrite:Word;Buffer:PByte):boolean;
     function I2C_Read(DeviceAddress,DeviceRegister:Byte;ToRead:Word;Buffer:PByte):boolean;
     property NumChannels:Word read FNumChannels;
@@ -171,6 +172,39 @@ begin
   end;
 end;
 
+function TLibMPSSE.I2C_Close:boolean;
+begin
+  result:=false;
+  if Assigned(Handle) then
+  begin
+    I2C_CloseChannel(Handle);
+    Handle:=nil;
+    result:=true;
+  end;
+end;
+
+{
+function TLibMPSSE.I2C_Write(DeviceAddress,DeviceRegister:Byte;ToWrite:Word;Buffer:PByte):boolean;
+var
+  NumBytes,NumBytesReturned:uint32;
+  buf:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
+  pbuf: pbyte;
+begin
+  result:=false;
+  if Assigned(Handle) then
+  begin
+    FillChar({%H-}buf,SizeOf(buf),0);
+    pbuf:=@buf;
+    NumBytes:=ToWrite+1;
+    NumBytesReturned:=0;
+    pbuf^:=DeviceRegister;
+    Inc(pbuf);
+    if (Buffer<>nil) then Move(buffer^,pbuf^,ToWrite);
+    result:=(I2C_DeviceWrite(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,(I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_STOP_BIT OR I2C_TRANSFER_OPTIONS_NACK_LAST_BYTE))=Ord(FT_OK));
+  end;
+end;
+}
+
 function TLibMPSSE.I2C_Write(DeviceAddress,DeviceRegister:Byte;ToWrite:Word;Buffer:PByte):boolean;
 var
   NumBytes,NumBytesReturned:uint32;
@@ -179,12 +213,13 @@ begin
   result:=false;
   if Assigned(Handle) then
   begin
-    NumBytes:=ToWrite+1;
+    NumBytes:=ToWrite+2;
     NumBytesReturned:=0;
     FillChar({%H-}buf,SizeOf(buf),0);
     buf[0]:=DeviceRegister;
-    if (Buffer<>nil) then Move(buffer^,buf[1],SizeOf(buf)-1);
-    result:=(I2C_DeviceWrite(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,I2C_TRANSFER_OPTIONS_START_BIT)=Ord(FT_OK));
+    buf[1]:=ToWrite;
+    Move(buffer^,buf[2],ToWrite);
+    result:=(I2C_DeviceWrite(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_STOP_BIT)=Ord(FT_OK));
   end;
 end;
 
@@ -196,11 +231,15 @@ begin
   result:=false;
   if Assigned(Handle) then
   begin
-    NumBytes:=ToRead+1;
+    NumBytes:=1;
     NumBytesReturned:=0;
     FillChar({%H-}buf,SizeOf(buf),0);
     buf[0]:=DeviceRegister;
-    result:=(I2C_DeviceRead(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_NACK_LAST_BYTE)=Ord(FT_OK));
+    result:=(I2C_DeviceWrite(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,I2C_TRANSFER_OPTIONS_START_BIT)=Ord(FT_OK));
+
+    NumBytes:=ToRead+1;
+    NumBytesReturned:=0;
+    result:=(I2C_DeviceRead(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,(I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_NACK_LAST_BYTE OR I2C_TRANSFER_OPTIONS_STOP_BIT))=Ord(FT_OK));
     Move(buf[1],buffer^,ToRead);
   end;
 end;

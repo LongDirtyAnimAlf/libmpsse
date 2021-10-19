@@ -386,6 +386,40 @@ type
      Reserved4                 : T7BITS;
   end;
 
+  PortConfiguration = bitpacked record
+     case integer of
+       1 : (
+         TypeCStateMachine            : T2BITS;
+         Reserved1                    : T1BITS;
+         ReceptacleType               : T3BITS;
+         AudioAccessorySupport        : T1BITS;
+         DebugAccessorySupport        : T1BITS;
+         SupportTypeCOptions          : T2BITS;
+         Reserved2                    : T1BITS;
+         VCONNsupported               : T2BITS;
+         USB3Rate                     : T2BITS;
+         Reserved3                    : T1BITS;
+         VBUS_SetUvpTo4P5V            : T1BITS;
+         VBUS_UvpTripPoint5V          : T3BITS;
+         VBUS_UvpTripHV               : T3BITS;
+         VBUS_OvpTripPoint            : T6BITS;
+         VBUS_OvpUsage                : T2BITS;
+         VBUS_HighVoltageWarningLevel : T1BITS;
+         VBUS_LowVoltageWarningLevel  : T1BITS;
+         SoftStart                    : T2BITS;
+         Reserved4                    : T1BITS;
+         EnableUVPDebounce            : T1BITS;
+         Reserved5                    : T3BITS;
+         VoltageThresAsSinkContract   : T8BITS;
+         PowerThresAsSourceContract   : T8BITS;
+         Reserved6                    : T8BITS;
+       );
+     2 : (
+          Raw                         : T64BITS;
+       );
+  end;
+
+
   TTPS65987 = class(TObject)
   private
     FAddress:byte;
@@ -394,6 +428,7 @@ type
     constructor Create;
     destructor Destroy;override;
     function Init:boolean;
+    function DisConnect:boolean;
     function ActivePDO(var aPDO:USBC_SOURCE_PD_POWER_DATA_OBJECT):boolean;
     function GetSourcePDOs(var aSourcePDOs:RXSOURCEPDS):boolean;
     function GetSinkPDOs(var aSinkPDOs:RXSINKPDS):boolean;
@@ -401,6 +436,9 @@ type
     function GetSinkRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;
     function GetTXSourcePDOs(var aSourcePDOs: TXSOURCEPDS):boolean;
     function GetTXSinkPDOs(var aSinkPDOs:TXSINKPDS):boolean;
+    function GetPortConfig(var aConfig:PortConfiguration):boolean;
+    function SetPortConfig(aConfig:PortConfiguration):boolean;
+    function SendCommand(aCommand:string):boolean;
     property Address:byte write FAddress;
   end;
 
@@ -408,6 +446,9 @@ implementation
 
 const
   REGISTER_CMD0           = $08;
+
+  REGISTER_PORT_CONFIG    = $28;
+
 
   REGISTER_RX_SOURCE_PDO  = $30;
   REGISTER_RX_SINK_PDO    = $31;
@@ -439,85 +480,92 @@ begin
   result:=LibMPSSE.I2C_Init(1);
 end;
 
+function TTPS65987.DisConnect:boolean;
+begin
+  result:=LibMPSSE.I2C_Close;
+end;
+
 function TTPS65987.ActivePDO(var aPDO:USBC_SOURCE_PD_POWER_DATA_OBJECT):boolean;
 begin
   if (FAddress=0) then exit(false);
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_ACTIVE_PDO,0,nil);
-  if result then
-  begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_ACTIVE_PDO,SizeOf(aPDO),PByte(@aPDO));
-  end;
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_ACTIVE_PDO,SizeOf(aPDO),PByte(@aPDO));
 end;
 
 function TTPS65987.GetSourcePDOs(var aSourcePDOs:RXSOURCEPDS):boolean;
 begin
   if (FAddress=0) then exit(false);
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_RX_SOURCE_PDO,0,nil);
-  if result then
-  begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_RX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
-  end;
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_RX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
 end;
 
 function TTPS65987.GetSinkPDOs(var aSinkPDOs:RXSINKPDS):boolean;
+const
+  CMD = 'GSkC';
 var
   aCmd:dword;
+  i:integer;
 begin
   if (FAddress=0) then exit(false);
-
-  //result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0,4,PByte(PChar('GSkC')));
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0,4,PByte(PChar('CkSG')));
-  if result then
+  aCmd:=0;
+  for i:=Length(CMD) downto 1 do
   begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_CMD0,4,PByte(@aCmd));
+    aCmd:=(aCmd SHL 8)+Ord(CMD[i]);
   end;
-
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_RX_SINK_PDO,0,nil);
-  if result then
-  begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_RX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
-  end;
+  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0,4,@aCmd);
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_RX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
 end;
 
 function TTPS65987.GetActiveRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;
 begin
   if (FAddress=0) then exit(false);
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_ACTIVE_RDO,0,nil);
-  if result then
-  begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_ACTIVE_RDO,SizeOf(aRDO),PByte(@aRDO));
-  end;
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_ACTIVE_RDO,SizeOf(aRDO),PByte(@aRDO));
 end;
 
 function TTPS65987.GetSinkRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;
 begin
   if (FAddress=0) then exit(false);
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_SINK_RDO,0,nil);
-  if result then
-  begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_SINK_RDO,SizeOf(aRDO),PByte(@aRDO));
-  end;
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_SINK_RDO,SizeOf(aRDO),PByte(@aRDO));
 end;
 
 function TTPS65987.GetTXSourcePDOs(var aSourcePDOs: TXSOURCEPDS):boolean;
 begin
   if (FAddress=0) then exit(false);
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_TX_SOURCE_PDO,0,nil);
-  if result then
-  begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_TX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
-  end;
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_TX_SOURCE_PDO,SizeOf(aSourcePDOs),PByte(@aSourcePDOs));
 end;
 
 function TTPS65987.GetTXSinkPDOs(var aSinkPDOs:TXSINKPDS):boolean;
 begin
   if (FAddress=0) then exit(false);
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_TX_SINK_PDO,0,nil);
-  if result then
-  begin
-    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_TX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
-  end;
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_TX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
 end;
+
+function TTPS65987.GetPortConfig(var aConfig:PortConfiguration):boolean;
+begin
+  if (FAddress=0) then exit(false);
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_PORT_CONFIG,SizeOf(aConfig),PByte(@aConfig));
+end;
+
+function TTPS65987.SetPortConfig(aConfig:PortConfiguration):boolean;
+begin
+  if (FAddress=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_PORT_CONFIG,SizeOf(aConfig),PByte(@aConfig));
+end;
+
+function TTPS65987.SendCommand(aCommand:string):boolean;
+var
+  aCmd:packed array [0..3] of Byte;
+  i:integer;
+  s:string;
+begin
+  if (FAddress=0) then exit(false);
+  if (Length(aCommand)<>4) then exit(false);
+  FillChar({%H-}aCmd,SizeOf(aCmd),0);
+  for i:=1 to 4 do
+  begin
+    aCmd[i-1]:=Ord(aCommand[i]);
+  end;
+  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0,4,@aCmd);
+end;
+
 
 end.
 
