@@ -14,7 +14,31 @@ const
 
   SUPPLY_TYPES : array[0..3] of string = ('Fixed','Battery','Variable','Reserved');
   BOOLEAN_TYPES : array[0..1] of string = ('False','True');
+  SOURCE_OR_SINK : array[0..1] of string = ('Sourcing','Sinking');
 
+  CHARGER_DETECT_STATUS : array[0..15] of string = (
+    'Charger detection disabled or not run',
+    'Charger detection in progress',
+    'Charger detection complete, none detected',
+    'Charger detection complete, SDP detected',
+    'Charger detection complete, BC 1.2 CDP detected',
+    'Charger detection complete, BC 1.2 DCP detected',
+    'Charger detection complete, Divider1 DCP detected',
+    'Charger detection complete, Divider2 DCP detected',
+    'Charger detection complete, Divider3 DCP detected',
+    'Charger detection complete, 1.2V DCP detected',
+    'Reserved',
+    'Reserved',
+    'Reserved',
+    'Reserved',
+    'Reserved',
+    'Reserved');
+
+  POWER_STATUS_CURRENT_DETAILS : array[0..3] of string = (
+    'USB Default Current',
+    '1.5A Current',
+    '3A Current',
+    'PD contract negotiated');
   PD_STATUS_PLUGDETAILS : array[0..3] of string = (
     'USB Type-C full-featured plug',
     'USB 2.0 Type-C plug',
@@ -457,6 +481,21 @@ type
        );
   end;
 
+  PowerStatus = bitpacked record //0x3F
+     case integer of
+       1 : (
+         PowerConnection         : T1BITS;
+         SourceSink              : T1BITS;
+         TypeCCurrent            : T2BITS;
+         ChargerDetectStatus     : T4BITS;
+         ChargerAdvertiseStatus  : T2BITS;
+         Reserved                : T6BITS;
+       );
+     2 : (
+          Raw                    : T16BITS;
+       );
+  end;
+
   TTPS65987 = class(TObject)
   private
     FAddress:byte;
@@ -473,8 +512,10 @@ type
     function GetSinkRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;
     function GetTXSourcePDOs(var aSourcePDOs: TXSOURCEPDS):boolean;
     function GetTXSinkPDOs(var aSinkPDOs:TXSINKPDS):boolean;
+    function SetTXSinkPDOs(aSinkPDOs:TXSINKPDS):boolean;
     function GetPortConfig(var aConfig:PortConfiguration):boolean;
     function SetPortConfig(aConfig:PortConfiguration):boolean;
+    function GetPowerStatus(var aStatus:PowerStatus):boolean;
     function SendCommand(aCommand:string):boolean;
     property Address:byte write FAddress;
   end;
@@ -499,6 +540,7 @@ const
 
   REGISTER_PD_STATUS      = $40;
   REGISTER_DATA_STATUS    = $5F;
+  REGISTER_POWER_STATUS   = $3F;
 
 constructor TTPS65987.Create;
 begin
@@ -570,6 +612,13 @@ begin
   result:=LibMPSSE.I2C_Read(FAddress,REGISTER_TX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
 end;
 
+function TTPS65987.SetTXSinkPDOs(aSinkPDOs:TXSINKPDS):boolean;
+begin
+  if (FAddress=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_TX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
+end;
+
+
 function TTPS65987.GetPortConfig(var aConfig:PortConfiguration):boolean;
 begin
   if (FAddress=0) then exit(false);
@@ -580,6 +629,12 @@ function TTPS65987.SetPortConfig(aConfig:PortConfiguration):boolean;
 begin
   if (FAddress=0) then exit(false);
   result:=LibMPSSE.I2C_Write(FAddress,REGISTER_PORT_CONFIG,SizeOf(aConfig),PByte(@aConfig));
+end;
+
+function TTPS65987.GetPowerStatus(var aStatus:PowerStatus):boolean;
+begin
+  if (FAddress=0) then exit(false);
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_POWER_STATUS,SizeOf(aStatus),PByte(@aStatus));
 end;
 
 function TTPS65987.SendCommand(aCommand:string):boolean;

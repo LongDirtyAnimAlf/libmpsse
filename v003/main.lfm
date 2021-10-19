@@ -85,9 +85,9 @@ object Form1: TForm1
     TabOrder = 7
   end
   object btnWritePortConfig: TButton
-    Left = 133
+    Left = 824
     Height = 37
-    Top = 403
+    Top = 240
     Width = 113
     Caption = 'Write PortConfig'
     OnClick = btnWritePortConfigClick
@@ -112,7 +112,7 @@ object Form1: TForm1
     TabOrder = 10
   end
   object grpActivePDO: TGroupBox
-    Left = 168
+    Left = 920
     Height = 152
     Top = 8
     Width = 456
@@ -121,7 +121,7 @@ object Form1: TForm1
     OnResize = grpActivePDOResize
   end
   object grpAllPDO: TGroupBox
-    Left = 648
+    Left = 376
     Height = 152
     Top = 8
     Width = 536
@@ -170,11 +170,95 @@ object Form1: TForm1
       TabOrder = 1
     end
   end
+  object grpPowerStatus: TGroupBox
+    Left = 159
+    Height = 152
+    Top = 8
+    Width = 201
+    Caption = 'Power Status'
+    ClientHeight = 132
+    ClientWidth = 197
+    TabOrder = 14
+    object editPowerStatusUSBCurrent: TEdit
+      AnchorSideLeft.Control = grpPowerStatus
+      AnchorSideTop.Control = grpPowerStatus
+      AnchorSideRight.Control = grpPowerStatus
+      AnchorSideRight.Side = asrBottom
+      Left = 8
+      Height = 23
+      Top = 4
+      Width = 181
+      Anchors = [akTop, akLeft, akRight]
+      BorderSpacing.Left = 8
+      BorderSpacing.Top = 4
+      BorderSpacing.Right = 8
+      ReadOnly = True
+      TabOrder = 0
+    end
+    object rbSource: TRadioButton
+      AnchorSideLeft.Control = editPowerStatusUSBCurrent
+      AnchorSideTop.Control = editPowerStatusUSBCurrent
+      AnchorSideTop.Side = asrBottom
+      Left = 8
+      Height = 19
+      Top = 31
+      Width = 56
+      BorderSpacing.Top = 4
+      Caption = 'Source'
+      TabOrder = 1
+    end
+    object rbSink: TRadioButton
+      AnchorSideTop.Control = editPowerStatusUSBCurrent
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = editPowerStatusUSBCurrent
+      AnchorSideRight.Side = asrBottom
+      Left = 147
+      Height = 19
+      Top = 31
+      Width = 42
+      Anchors = [akTop, akRight]
+      BorderSpacing.Top = 4
+      Caption = 'Sink'
+      TabOrder = 2
+    end
+    object memoPowerStatusChargerDetectStatus: TMemo
+      AnchorSideLeft.Control = editPowerStatusUSBCurrent
+      AnchorSideRight.Control = editPowerStatusUSBCurrent
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Control = grpPowerStatus
+      AnchorSideBottom.Side = asrBottom
+      Left = 8
+      Height = 62
+      Top = 66
+      Width = 181
+      Anchors = [akTop, akLeft, akRight, akBottom]
+      BorderSpacing.Bottom = 4
+      TabOrder = 3
+    end
+  end
+  object Button2: TButton
+    Left = 290
+    Height = 46
+    Top = 228
+    Width = 121
+    Caption = 'Button2'
+    OnClick = Button2Click
+    TabOrder = 15
+  end
+  object Button3: TButton
+    Left = 465
+    Height = 61
+    Top = 225
+    Width = 143
+    Caption = 'Button3'
+    OnClick = Button3Click
+    TabOrder = 16
+  end
   object Timer1: TTimer
     Enabled = False
     Interval = 200
     OnTimer = Timer1Timer
-    Left = 381
-    Top = 226
+    Left = 128
+    Top = 168
   end
 end
