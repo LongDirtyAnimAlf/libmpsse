@@ -12,7 +12,7 @@ const
   ADDRESS_TPS65987_SINK   = $21;
   ADDRESS_TPS65987_SOURCE = $20;
 
-  SUPPLY_TYPES : array[0..3] of string = ('Fixed supply','Battery','Variable supply','Reserved');
+  SUPPLY_TYPES : array[0..3] of string = ('Fixed','Battery','Variable','Reserved');
   BOOLEAN_TYPES : array[0..1] of string = ('False','True');
 
   PD_STATUS_PLUGDETAILS : array[0..3] of string = (
@@ -365,25 +365,25 @@ type
   end;
 
   PD30Configuration = bitpacked record
-     SOPRevision               : T2BITS;
-     SOPPrimeRevision          : T2BITS;
-     UnchunkedSupported        : T1BITS;
-     FRSwapEnabled             : T1BITS;
-     FRSignalDisabledForUVP    : T1BITS;
-     Reserved1                 : T1BITS;
-     tFRSwapInit               : T4BITS;
-     Reserved2                 : T1BITS;
-     Reserved3                 : T3BITS;
-     SupportSourceCapExtMsg    : T1BITS;
-     SupportStatusMsg          : T1BITS;
-     SupportBatteryCapMsg      : T1BITS;
-     SupportBatteryStatusMsg   : T1BITS;
-     SupportManufactureInfoMsg : T1BITS;
-     SupportSecurityMsg        : T1BITS;
-     SupportFirmwareUpgradeMsg : T1BITS;
-     SupportPPSStatusMsg       : T1BITS;
-     SupportCountyCodeInfo     : T1BITS;
-     Reserved4                 : T7BITS;
+     SOPRevision                    : T2BITS;
+     SOPPrimeRevision               : T2BITS;
+     UnchunkedSupported             : T1BITS;
+     FRSwapEnabled                  : T1BITS;
+     FRSignalDisabledForUVP         : T1BITS;
+     Reserved1                      : T1BITS;
+     tFRSwapInit                    : T4BITS;
+     Reserved2                      : T1BITS;
+     Reserved3                      : T3BITS;
+     SupportSourceCapExtMsg         : T1BITS;
+     SupportStatusMsg               : T1BITS;
+     SupportBatteryCapMsg           : T1BITS;
+     SupportBatteryStatusMsg        : T1BITS;
+     SupportManufactureInfoMsg      : T1BITS;
+     SupportSecurityMsg             : T1BITS;
+     SupportFirmwareUpgradeMsg      : T1BITS;
+     SupportPPSStatusMsg            : T1BITS;
+     SupportCountyCodeInfo          : T1BITS;
+     Reserved4                      : T7BITS;
   end;
 
   PortConfiguration = bitpacked record
@@ -419,6 +419,43 @@ type
        );
   end;
 
+  DataStatus = bitpacked record
+     case integer of
+       1 : (
+         DataConnection                  : T1BITS;
+         DataOrientation                 : T1BITS;
+         ActiveCable                     : T1BITS;
+         OvercurrentOrTemperature        : T1BITS;
+         USB2Connection                  : T1BITS;
+         USB3Connection                  : T1BITS;
+         USB3Speed                       : T1BITS;
+         USBDataRole                     : T1BITS;
+         DPConnection                    : T1BITS;
+         DPSourceSink                    : T1BITS;
+         DPPinAssignment                 : T2BITS;
+         Debug_Accessory_Mode            : T1BITS;
+         HPD_IRQ_ACK                     : T1BITS;
+         HPD_IRQsticky                   : T1BITS;
+         HPDlevel                        : T1BITS;
+         TBTConnection                   : T1BITS;
+         TBTType                         : T1BITS;
+         CableType                       : T1BITS;
+         vPro_Dock_detected              : T1BITS;
+         ActiveLinkTraining              : T1BITS;
+         Debug_Alternate_Mode_Connection : T1BITS;
+         Debug_Alternate_Mode_Type       : T1BITS;
+         ForceLSX                        : T1BITS;
+         S0_power_negotiated             : T1BITS;
+         TBTCableSpeedSupport            : T3BITS;
+         TBTCableGen                     : T2BITS;
+         Retimer_Data_Valid              : T1BITS;
+         Reserved                        : T1BITS;
+         Debug_Alternate_Mode_ID         : T8BITS;
+       );
+     2 : (
+          Raw                            : T40BITS;
+       );
+  end;
 
   TTPS65987 = class(TObject)
   private
@@ -459,7 +496,9 @@ const
   REGISTER_ACTIVE_RDO     = $35;
   REGISTER_SINK_RDO       = $36;
   REGISTER_AUTO_SINK      = $37;
+
   REGISTER_PD_STATUS      = $40;
+  REGISTER_DATA_STATUS    = $5F;
 
 constructor TTPS65987.Create;
 begin
@@ -498,20 +537,13 @@ begin
 end;
 
 function TTPS65987.GetSinkPDOs(var aSinkPDOs:RXSINKPDS):boolean;
-const
-  CMD = 'GSkC';
-var
-  aCmd:dword;
-  i:integer;
 begin
   if (FAddress=0) then exit(false);
-  aCmd:=0;
-  for i:=Length(CMD) downto 1 do
+  result:=SendCommand('GSkC');
+  if result then
   begin
-    aCmd:=(aCmd SHL 8)+Ord(CMD[i]);
+    result:=LibMPSSE.I2C_Read(FAddress,REGISTER_RX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
   end;
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0,4,@aCmd);
-  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_RX_SINK_PDO,SizeOf(aSinkPDOs),PByte(@aSinkPDOs));
 end;
 
 function TTPS65987.GetActiveRDO(var aRDO:USBC_PD_REQUEST_DATA_OBJECT):boolean;

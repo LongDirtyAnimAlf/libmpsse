@@ -5,16 +5,16 @@ unit main;
 interface
 
 uses
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  tps65987;
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
+  Grids, tps65987, dsleds;
 
 type
 
   { TForm1 }
 
   TForm1 = class(TForm)
-    btnConnectSink: TButton;
     btnActivePDO: TButton;
+    btnConnectSink: TButton;
     btnConnectSource: TButton;
     btnSourcePDOs: TButton;
     btnSinkPDOs: TButton;
@@ -25,7 +25,12 @@ type
     btnWritePortConfig: TButton;
     btnDisConnect: TButton;
     Button1: TButton;
+    gridRemotePDO: TStringGrid;
+    GroupBox1: TGroupBox;
+    grpAllPDO: TGroupBox;
+    grpActivePDO: TGroupBox;
     Memo1: TMemo;
+    Timer1: TTimer;
     procedure btnDisConnectClick(Sender: TObject);
     procedure btnGetRDOClick(Sender: TObject);
     procedure btnGetTXSinkPDOsClick(Sender: TObject);
@@ -39,9 +44,14 @@ type
     procedure Button1Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure grpActivePDOResize(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
   private
     TPS65987:TTPS65987;
     PC: PortConfiguration;
+
+    VoltageDisplay      : TdsSevenSegmentMultiDisplay;
+    CurrentDisplay      : TdsSevenSegmentMultiDisplay;
   public
 
   end;
@@ -56,10 +66,39 @@ implementation
 const
   SLEEP_DURATION          = 25;
 
+function ChangeBrightness(lIn: tColor; factor:double): TColor;
+var
+  lR,lG,lB: byte;
+begin
+  lR := Red(lIn);
+  lG := Green(lIn);
+  lB := Blue(lIn);
+  result := RGBToColor(Round(lR*factor),Round(lG*factor),Round(lB*factor));
+end;
+
 { TForm1 }
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
+  gridRemotePDO.Cells[0,1]:='Type';
+  gridRemotePDO.Cells[0,2]:='Voltage';
+  gridRemotePDO.Cells[0,3]:='Current';
+
+  VoltageDisplay:=TdsSevenSegmentMultiDisplay.Create(grpActivePDO);
+  with VoltageDisplay do
+  begin
+    Parent:=grpActivePDO;
+    OnColor:=clAqua;
+    OffColor:=ChangeBrightness(OnColor,0.1);
+  end;
+  CurrentDisplay:=TdsSevenSegmentMultiDisplay.Create(grpActivePDO);
+  with CurrentDisplay do
+  begin
+    Parent:=grpActivePDO;
+    OnColor:=clRed;
+    OffColor:=ChangeBrightness(OnColor,0.1);
+  end;
+
   TPS65987:=TTPS65987.Create;
 end;
 
@@ -68,6 +107,59 @@ begin
   if Assigned(TPS65987) then
   begin
     TPS65987.Free;
+  end;
+end;
+
+procedure TForm1.grpActivePDOResize(Sender: TObject);
+begin
+  VoltageDisplay.Top:=5;
+  VoltageDisplay.Left:=5;
+
+  VoltageDisplay.Width:=(TControl(Sender).Width DIV 2)-12;
+  VoltageDisplay.Height:=(TControl(Sender).Height)-30;
+
+  CurrentDisplay.Width:=VoltageDisplay.Width;
+  CurrentDisplay.Height:=VoltageDisplay.Height;
+
+  CurrentDisplay.Left:=VoltageDisplay.Width+VoltageDisplay.Left+12;
+  CurrentDisplay.Top:=VoltageDisplay.Top;
+end;
+
+procedure TForm1.Timer1Timer(Sender: TObject);
+var
+  ActivePDO    : USBC_SOURCE_PD_POWER_DATA_OBJECT;
+  RemotePDOs   : RXSOURCEPDS;
+  i            : integer;
+begin
+  FillChar({%H-}ActivePDO,SizeOf(ActivePDO),0);
+  if TPS65987.ActivePDO(ActivePDO) then
+  begin
+    VoltageDisplay.Value:=ActivePDO.FixedSupplyPdo.VoltageIn50mV*50/1000;
+    CurrentDisplay.Value:=ActivePDO.FixedSupplyPdo.MaximumCurrentIn10mA*10/1000;
+  end;
+  FillChar({%H-}RemotePDOs,SizeOf(RemotePDOs),0);
+  if TPS65987.GetSourcePDOs(RemotePDOs) then
+  begin
+    i:=0;
+    if (RemotePDOs.Header.NumValidPDO>0) then
+    begin
+      while (i<RemotePDOs.Header.NumValidPDO) AND (i<Pred(gridRemotePDO.ColCount)) do
+      begin
+        gridRemotePDO.Cells[1+i,0]:='PDO '+InttoStr(i+1);
+        gridRemotePDO.Cells[1+i,1]:=SUPPLY_TYPES[RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply];
+        gridRemotePDO.Cells[1+i,2]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA';
+        gridRemotePDO.Cells[1+i,3]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt';
+        Inc(i);
+      end;
+    end;
+    while (i<Pred(gridRemotePDO.ColCount)) do
+    begin
+      gridRemotePDO.Cells[1+i,0]:='';
+      gridRemotePDO.Cells[1+i,1]:='';
+      gridRemotePDO.Cells[1+i,2]:='';
+      gridRemotePDO.Cells[1+i,3]:='';
+      Inc(i);
+    end;
   end;
 end;
 
@@ -80,6 +172,7 @@ begin
       if Sender=btnConnectSink then TPS65987.Address:=ADDRESS_TPS65987_SINK;
       if Sender=btnConnectSource then TPS65987.Address:=ADDRESS_TPS65987_SOURCE;
       Memo1.Lines.Append('Connected');
+      Timer1.Enabled:=True;
     end
     else
       Memo1.Lines.Append('Connect failure');

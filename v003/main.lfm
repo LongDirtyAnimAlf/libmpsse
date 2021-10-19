@@ -1,0 +1,180 @@
+object Form1: TForm1
+  Left = 298
+  Height = 536
+  Top = 124
+  Width = 1425
+  Caption = 'Form1'
+  ClientHeight = 536
+  ClientWidth = 1425
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  LCLVersion = '2.3.0.0'
+  object Memo1: TMemo
+    Left = 336
+    Height = 196
+    Top = 312
+    Width = 1066
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    Lines.Strings = (
+      'Memo1'
+    )
+    ScrollBars = ssAutoVertical
+    TabOrder = 0
+  end
+  object btnActivePDO: TButton
+    Left = 8
+    Height = 54
+    Top = 216
+    Width = 113
+    Caption = 'Active PDO'
+    OnClick = btnActivePDOClick
+    TabOrder = 1
+  end
+  object btnSourcePDOs: TButton
+    Left = 8
+    Height = 52
+    Top = 280
+    Width = 105
+    Caption = 'Get Source PDOs'
+    OnClick = btnSourcePDOsClick
+    TabOrder = 2
+  end
+  object btnSinkPDOs: TButton
+    Left = 141
+    Height = 50
+    Top = 282
+    Width = 94
+    Caption = 'Get Sink PDOs'
+    OnClick = btnSinkPDOsClick
+    TabOrder = 3
+  end
+  object btnGetRDO: TButton
+    Left = 129
+    Height = 58
+    Top = 216
+    Width = 106
+    Caption = 'Get RDO'
+    OnClick = btnGetRDOClick
+    TabOrder = 4
+  end
+  object btnGetTXSourcePDOs: TButton
+    Left = 8
+    Height = 51
+    Top = 336
+    Width = 103
+    Caption = 'Get TX Source PDOs'
+    OnClick = btnGetTXSourcePDOsClick
+    TabOrder = 5
+  end
+  object btnGetTXSinkPDOs: TButton
+    Left = 133
+    Height = 38
+    Top = 349
+    Width = 102
+    Caption = 'Get TX Sink PDOs'
+    OnClick = btnGetTXSinkPDOsClick
+    TabOrder = 6
+  end
+  object btnReadPortConfig: TButton
+    Left = 8
+    Height = 40
+    Top = 400
+    Width = 95
+    Caption = 'Read PortConfig'
+    OnClick = btnReadPortConfigClick
+    TabOrder = 7
+  end
+  object btnWritePortConfig: TButton
+    Left = 133
+    Height = 37
+    Top = 403
+    Width = 113
+    Caption = 'Write PortConfig'
+    OnClick = btnWritePortConfigClick
+    TabOrder = 8
+  end
+  object btnDisConnect: TButton
+    Left = 8
+    Height = 49
+    Top = 472
+    Width = 224
+    Caption = 'DisConnect Device'
+    OnClick = btnDisConnectClick
+    TabOrder = 9
+  end
+  object Button1: TButton
+    Left = 256
+    Height = 31
+    Top = 448
+    Width = 55
+    Caption = 'Button1'
+    OnClick = Button1Click
+    TabOrder = 10
+  end
+  object grpActivePDO: TGroupBox
+    Left = 168
+    Height = 152
+    Top = 8
+    Width = 456
+    Caption = 'Active PDO'
+    TabOrder = 11
+    OnResize = grpActivePDOResize
+  end
+  object grpAllPDO: TGroupBox
+    Left = 648
+    Height = 152
+    Top = 8
+    Width = 536
+    BorderSpacing.InnerBorder = 5
+    Caption = 'Available PDOs'
+    ClientHeight = 132
+    ClientWidth = 532
+    TabOrder = 12
+    object gridRemotePDO: TStringGrid
+      Left = 6
+      Height = 120
+      Top = 6
+      Width = 520
+      Align = alClient
+      BorderSpacing.Around = 6
+      ColCount = 8
+      Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goDrawFocusSelected]
+      TabOrder = 0
+    end
+  end
+  object GroupBox1: TGroupBox
+    Left = 8
+    Height = 152
+    Top = 8
+    Width = 136
+    Caption = 'GroupBox1'
+    ClientHeight = 132
+    ClientWidth = 132
+    TabOrder = 13
+    object btnConnectSink: TButton
+      Left = 8
+      Height = 44
+      Top = 8
+      Width = 113
+      Caption = 'Connect Sink'
+      OnClick = btnConnectClick
+      TabOrder = 0
+    end
+    object btnConnectSource: TButton
+      Left = 8
+      Height = 44
+      Top = 72
+      Width = 113
+      Caption = 'Connect Source'
+      OnClick = btnConnectClick
+      TabOrder = 1
+    end
+  end
+  object Timer1: TTimer
+    Enabled = False
+    Interval = 200
+    OnTimer = Timer1Timer
+    Left = 381
+    Top = 226
+  end
+end
