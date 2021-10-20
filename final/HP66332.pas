@@ -11,6 +11,8 @@ type
   private
     ser               : TBlockSerial;
     FConnected        : boolean;
+    FManufacturer     : string;
+    FModel            : string;
     FVoltage,FCurrent : double;
     FSetCurrent       : double;
     KData             : TStringList;
@@ -27,6 +29,9 @@ type
     procedure SetOutput(value:boolean);
     procedure Measure;
     property  Connected:boolean read FConnected;
+    property  Manufacturer:string read FManufacturer;
+    property  Model:string read FModel;
+
     property  Voltage:double read FVoltage;
     property  Current:double read FCurrent;
     property  SerialPort: word write FSerport;
@@ -84,6 +89,9 @@ begin
 
   FConnected:=False;
 
+  FManufacturer:='';
+  FModel:='';
+
   FVoltage:=0;
   FCurrent:=0;
 
@@ -111,7 +119,10 @@ end;
 
 
 procedure THP66332.Connect;
+var
+  aID:string;
 begin
+  FConnected:=False;
 
   ser.CloseSocket;
   {$ifdef MSWINDOWS}
@@ -127,30 +138,45 @@ begin
     MessageDlg ('Sorry, HP comport error on port '+InttoStr(FSerport)+' !!'+
                   chr(13)+'Serial port error: '+ser.LastErrorDesc,
                   mtInformation, [mbOk],0);
-    FConnected:=False;
-  end else FConnected:=True;
+  end
+  else
+  begin
+    FConnected:=True;
+  end;
 
   if Connected then
   begin
     ser.Config(FSerspeed,8,'N',SB1,false,false);
     ser.Purge;
   end;
+  FConnected:=(ser.LastError=0);
 
-  SendData(ser,'*RST');
-  SendData(ser,'*SRE 0');
+  if Connected then
+  begin
+    SendData(ser,'*RST');
+    SendData(ser,'*SRE 0');
 
-  sleep(200);
+    FManufacturer:='';
+    FModel:='';
+    SendData(ser,'*IDN?');
+    KData.CommaText:=ser.Recvstring(HPTimeout);
+    if (KData.Count>0) then FManufacturer:=KData.Strings[0]; // Hewlett-Packard
+    if (KData.Count>1) then FModel:=KData.Strings[1]; // 6632B
+    FConnected:=(Pos('663',FModel)=1);
 
-  SendData(ser,'REMS');
+    if Connected then
+    begin
+      sleep(200);
+      SendData(ser,'REMS');
+      SendData(ser,'SENS:CURR:DET DC');
+      SendData(ser,'CURR 0');
+      SendData(ser,'VOLT 0');
+      sleep(200);
+    end;
 
-  SendData(ser,'SENS:CURR:DET DC');
+  end;
 
-  SendData(ser,'CURR 0');
-
-  SendData(ser,'VOLT 0');
-
-  sleep(200);
-
+  if (NOT Connected) then ser.CloseSocket;
 end;
 
 procedure THP66332.DisConnect;
@@ -242,28 +268,20 @@ end;
 
 destructor THP66332.Destroy;
 begin
-  if (Connected) then
+  if (ser<>nil) then
   begin
-    FConnected:=False;
-    if ser<>nil then
+    if Connected then
     begin
-      {
-      SendData(ser,'*RST');
-      }
-
       SendData(ser,'OUTPUT OFF');
-
       SendData(ser,'ABORT');
-
       SendData(ser,'*CLS');
-
       SendData(ser,'*SRE 0');
-
       sleep(500);
-      ser.CloseSocket;
-      ser.Free;
     end;
+    ser.CloseSocket;
+    ser.Free;
   end;
+  KData.Free;
   inherited Destroy;
 end;
 

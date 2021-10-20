@@ -1,0 +1,561 @@
+object Form1: TForm1
+  Left = 304
+  Height = 756
+  Top = 130
+  Width = 1343
+  Caption = 'Form1'
+  ClientHeight = 756
+  ClientWidth = 1343
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  LCLVersion = '2.3.0.0'
+  object grpActivePDO: TGroupBox
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 920
+    Height = 152
+    Top = 8
+    Width = 415
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 8
+    BorderSpacing.Right = 8
+    Caption = 'Active PDO'
+    TabOrder = 1
+    OnResize = grpActivePDOResize
+  end
+  object grpAllPDO: TGroupBox
+    AnchorSideTop.Control = Owner
+    Left = 376
+    Height = 152
+    Top = 8
+    Width = 536
+    BorderSpacing.Top = 8
+    BorderSpacing.InnerBorder = 5
+    Caption = 'Available PDOs'
+    ClientHeight = 132
+    ClientWidth = 532
+    TabOrder = 2
+    object gridRemotePDO: TStringGrid
+      Left = 6
+      Height = 120
+      Top = 6
+      Width = 520
+      Align = alClient
+      AutoEdit = False
+      BorderSpacing.Around = 6
+      ColCount = 8
+      Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goHorzLine, goRangeSelect, goDrawFocusSelected]
+      TabOrder = 0
+      ColWidths = (
+        64
+        64
+        64
+        64
+        64
+        64
+        64
+        68
+      )
+    end
+  end
+  object grpPDControl: TGroupBox
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    Left = 8
+    Height = 152
+    Top = 8
+    Width = 136
+    BorderSpacing.Left = 8
+    BorderSpacing.Top = 8
+    Caption = 'PD Control'
+    ClientHeight = 132
+    ClientWidth = 132
+    TabOrder = 3
+    object btnConnectSink: TButton
+      AnchorSideLeft.Control = grpPDControl
+      AnchorSideTop.Control = grpPDControl
+      AnchorSideRight.Control = grpPDControl
+      AnchorSideRight.Side = asrBottom
+      Left = 8
+      Height = 25
+      Top = 4
+      Width = 116
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = True
+      BorderSpacing.Left = 8
+      BorderSpacing.Top = 4
+      BorderSpacing.Right = 8
+      Caption = 'Connect Sink'
+      OnClick = btnConnectClick
+      TabOrder = 0
+    end
+    object btnConnectSource: TButton
+      AnchorSideLeft.Control = grpPDControl
+      AnchorSideTop.Control = btnConnectSink
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = grpPDControl
+      AnchorSideRight.Side = asrBottom
+      Left = 8
+      Height = 25
+      Top = 33
+      Width = 116
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = True
+      BorderSpacing.Left = 8
+      BorderSpacing.Top = 4
+      BorderSpacing.Right = 8
+      Caption = 'Connect Source'
+      OnClick = btnConnectClick
+      TabOrder = 1
+    end
+    object btnReset: TButton
+      AnchorSideLeft.Control = grpPDControl
+      AnchorSideTop.Control = btnDisConnect
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = grpPDControl
+      AnchorSideRight.Side = asrBottom
+      Left = 8
+      Height = 25
+      Top = 99
+      Width = 116
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = True
+      BorderSpacing.Left = 8
+      BorderSpacing.Top = 4
+      BorderSpacing.Right = 8
+      Caption = 'Reset Controller'
+      OnClick = btnResetClick
+      TabOrder = 2
+    end
+    object btnDisConnect: TButton
+      AnchorSideLeft.Control = grpPDControl
+      AnchorSideTop.Control = btnConnectSource
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = grpPDControl
+      AnchorSideRight.Side = asrBottom
+      Left = 8
+      Height = 25
+      Top = 70
+      Width = 116
+      Anchors = [akTop, akLeft, akRight]
+      AutoSize = True
+      BorderSpacing.Left = 8
+      BorderSpacing.Top = 12
+      BorderSpacing.Right = 8
+      Caption = 'Disconnect'
+      OnClick = btnDisConnectClick
+      TabOrder = 3
+    end
+  end
+  object grpPowerStatus: TGroupBox
+    AnchorSideTop.Control = Owner
+    Left = 159
+    Height = 152
+    Top = 8
+    Width = 201
+    BorderSpacing.Top = 8
+    Caption = 'Power Status'
+    ClientHeight = 132
+    ClientWidth = 197
+    TabOrder = 4
+    object editPowerStatusUSBCurrent: TEdit
+      AnchorSideLeft.Control = grpPowerStatus
+      AnchorSideTop.Control = grpPowerStatus
+      AnchorSideRight.Control = grpPowerStatus
+      AnchorSideRight.Side = asrBottom
+      Left = 8
+      Height = 23
+      Top = 4
+      Width = 181
+      Anchors = [akTop, akLeft, akRight]
+      BorderSpacing.Left = 8
+      BorderSpacing.Top = 4
+      BorderSpacing.Right = 8
+      ReadOnly = True
+      TabOrder = 0
+    end
+    object rbSource: TRadioButton
+      AnchorSideLeft.Control = editPowerStatusUSBCurrent
+      AnchorSideTop.Control = editPowerStatusUSBCurrent
+      AnchorSideTop.Side = asrBottom
+      Left = 8
+      Height = 19
+      Top = 31
+      Width = 56
+      BorderSpacing.Top = 4
+      Caption = 'Source'
+      TabOrder = 1
+    end
+    object rbSink: TRadioButton
+      AnchorSideTop.Control = editPowerStatusUSBCurrent
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = editPowerStatusUSBCurrent
+      AnchorSideRight.Side = asrBottom
+      Left = 147
+      Height = 19
+      Top = 31
+      Width = 42
+      Anchors = [akTop, akRight]
+      BorderSpacing.Top = 4
+      Caption = 'Sink'
+      TabOrder = 2
+    end
+    object memoPowerStatusChargerDetectStatus: TMemo
+      AnchorSideLeft.Control = editPowerStatusUSBCurrent
+      AnchorSideRight.Control = editPowerStatusUSBCurrent
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Control = grpPowerStatus
+      AnchorSideBottom.Side = asrBottom
+      Left = 8
+      Height = 62
+      Top = 66
+      Width = 181
+      Anchors = [akTop, akLeft, akRight, akBottom]
+      BorderSpacing.Bottom = 4
+      ReadOnly = True
+      TabOrder = 3
+    end
+  end
+  object cmboSerialPorts: TComboBox
+    AnchorSideTop.Control = btnInit
+    Left = 201
+    Height = 23
+    Top = 176
+    Width = 129
+    ItemHeight = 15
+    TabOrder = 5
+    Text = 'Serial Ports'
+  end
+  object btnInit: TButton
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = grpPDControl
+    AnchorSideTop.Side = asrBottom
+    Left = 8
+    Height = 33
+    Top = 176
+    Width = 177
+    BorderSpacing.Left = 8
+    BorderSpacing.Top = 16
+    Caption = 'Init and Connect Powersource'
+    OnClick = btnInitClick
+    TabOrder = 6
+  end
+  object StartStopButton: TSpeedButton
+    AnchorSideLeft.Control = Owner
+    Left = 8
+    Height = 128
+    Top = 216
+    Width = 177
+    AllowAllUp = True
+    BorderSpacing.Left = 8
+    Caption = 'Start'
+    Enabled = False
+    Font.Color = clLime
+    Font.Height = -27
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    GroupIndex = 1
+    OnClick = StartStopButtonClick
+    ParentFont = False
+  end
+  object btnTestPhoneDischarge: TSpeedButton
+    AnchorSideLeft.Control = StartStopButton
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = StartStopButton
+    Left = 201
+    Height = 25
+    Top = 216
+    Width = 178
+    AllowAllUp = True
+    BorderSpacing.Left = 16
+    Caption = 'Test phone discharge'
+    Enabled = False
+    GroupIndex = 1
+    OnClick = btnTestDischargeClick
+  end
+  object btnTestTabletDischarge: TSpeedButton
+    AnchorSideLeft.Control = StartStopButton
+    AnchorSideLeft.Side = asrBottom
+    Left = 201
+    Height = 25
+    Top = 256
+    Width = 178
+    AllowAllUp = True
+    BorderSpacing.Left = 16
+    Caption = 'Test tablet discharge'
+    Enabled = False
+    GroupIndex = 1
+    OnClick = btnTestDischargeClick
+  end
+  object btnMeasure: TButton
+    AnchorSideLeft.Control = StartStopButton
+    AnchorSideLeft.Side = asrBottom
+    Left = 201
+    Height = 50
+    Top = 294
+    Width = 178
+    BorderSpacing.Left = 16
+    Caption = 'Measure'
+    Enabled = False
+    OnClick = btnMeasureClick
+    TabOrder = 7
+  end
+  object TypesBox: TComboBox
+    AnchorSideLeft.Control = StartStopButton
+    AnchorSideTop.Control = StartStopButton
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = StartStopButton
+    AnchorSideRight.Side = asrBottom
+    Left = 8
+    Height = 23
+    Top = 360
+    Width = 177
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 16
+    ItemHeight = 15
+    Items.Strings = (
+      'TA0001 Powerocks Stone 3'
+      'TA0002 Xtorm AL 420'
+      'TA0003 ISY IAP 3001'
+      'TA0004 TPLink TL - PB 10400'
+      'TA0005 PURO BB60P1 WHI'
+      'TA0006 Cellularline Freepower Multi 10000'
+      'TA0007 Energea Duo 9000'
+      'TA0008 PNY Powerpack T 7800'
+      'TA0009 GP Powerbank 8400mAh'
+      'TA00010 Samsung 8400mAh'
+      'TA00011 iWalk Extreme Duo 8200mAh'
+      'TA00012 Avanca Powerbar Pro 9000'
+    )
+    TabOrder = 8
+    Text = 'Enter battery type'
+  end
+  object SamplesBox: TComboBox
+    AnchorSideLeft.Control = TypesBox
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = TypesBox
+    Left = 201
+    Height = 23
+    Top = 360
+    Width = 177
+    BorderSpacing.Left = 16
+    ItemHeight = 15
+    Items.Strings = (
+      '1'
+    )
+    TabOrder = 9
+    Text = 'Enter battery #'
+  end
+  object TestsBox: TComboBox
+    AnchorSideLeft.Control = StartStopButton
+    AnchorSideTop.Control = TypesBox
+    AnchorSideTop.Side = asrBottom
+    Left = 8
+    Height = 23
+    Top = 391
+    Width = 177
+    BorderSpacing.Top = 8
+    ItemHeight = 15
+    Items.Strings = (
+      'Telephone'
+      'Tablet'
+      'CurrentCurve'
+    )
+    OnChange = TestsBoxChange
+    TabOrder = 10
+    Text = 'Enter test type'
+  end
+  object DurationsBox: TComboBox
+    AnchorSideLeft.Control = TestsBox
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = TestsBox
+    Left = 201
+    Height = 23
+    Top = 391
+    Width = 177
+    BorderSpacing.Left = 16
+    Enabled = False
+    ItemHeight = 15
+    TabOrder = 11
+    Text = 'Enter test duration'
+  end
+  object Label1: TLabel
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = TestsBox
+    AnchorSideTop.Side = asrBottom
+    Left = 8
+    Height = 21
+    Top = 430
+    Width = 67
+    AutoSize = False
+    BorderSpacing.Left = 8
+    BorderSpacing.Top = 16
+    Caption = 'Current [A]:'
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    Layout = tlCenter
+    ParentFont = False
+  end
+  object CurrentEdit: TEdit
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Label1
+    AnchorSideTop.Side = asrBottom
+    Left = 8
+    Height = 23
+    Top = 455
+    Width = 104
+    BorderSpacing.Left = 8
+    BorderSpacing.Top = 4
+    Enabled = False
+    OnKeyPress = CurrentEditKeyPress
+    TabOrder = 12
+    Text = '0'
+  end
+  object Chart1: TChart
+    AnchorSideTop.Control = btnInit
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = DisplaysPanel
+    Left = 400
+    Height = 418
+    Top = 176
+    Width = 935
+    AxisList = <    
+      item
+        Grid.Color = clWhite
+        TickColor = clWhite
+        AxisPen.Color = clWhite
+        AxisPen.Visible = True
+        Marks.LabelFont.Color = clAqua
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Title.LabelFont.Color = clAqua
+        Title.LabelFont.Orientation = 900
+        Title.Visible = True
+        Title.Caption = 'Voltage'
+        Title.LabelBrush.Style = bsClear
+      end    
+      item
+        Grid.Color = clWhite
+        Alignment = calBottom
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Title.LabelFont.Color = clWhite
+        Title.LabelBrush.Style = bsClear
+      end    
+      item
+        Alignment = calRight
+        Marks.LabelFont.Color = clRed
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Title.LabelFont.Color = clRed
+        Title.LabelFont.Orientation = -900
+        Title.Visible = True
+        Title.Caption = 'Current'
+        Title.LabelBrush.Style = bsClear
+      end>
+    BackColor = clBlack
+    Foot.Brush.Color = clBtnFace
+    Foot.Font.Color = clBlue
+    Title.Brush.Color = clBtnFace
+    Title.Font.Color = clBlue
+    Title.Text.Strings = (
+      'TChart'
+    )
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Right = 8
+    BorderSpacing.Bottom = 8
+    Color = clBlack
+    object Series1: TLineSeries
+      Title = 'Voltage'
+      LinePen.Color = clAqua
+      LinePen.Width = 4
+    end
+    object Series2: TLineSeries
+      Title = 'Current'
+      LinePen.Color = clYellow
+      LinePen.Width = 4
+    end
+    object Series3: TLineSeries
+      Active = False
+      Title = 'SetCurrent'
+      LinePen.Color = clRed
+      LinePen.Width = 4
+    end
+  end
+  object Memo1: TMemo
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = CurrentEdit
+    AnchorSideTop.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 8
+    Height = 258
+    Top = 490
+    Width = 370
+    Anchors = [akTop, akLeft, akBottom]
+    BorderSpacing.Left = 8
+    BorderSpacing.Top = 12
+    BorderSpacing.Bottom = 8
+    Lines.Strings = (
+      'Memo1'
+    )
+    ScrollBars = ssAutoVertical
+    TabOrder = 0
+  end
+  object DisplaysPanel: TPanel
+    AnchorSideLeft.Control = Chart1
+    AnchorSideTop.Control = Chart1
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 400
+    Height = 146
+    Top = 602
+    Width = 935
+    Anchors = [akLeft, akRight, akBottom]
+    BorderSpacing.Top = 8
+    BorderSpacing.Right = 8
+    BorderSpacing.Bottom = 8
+    TabOrder = 14
+    OnResize = DisplaysPanelResize
+  end
+  object Button1: TButton
+    Left = 177
+    Height = 31
+    Top = 439
+    Width = 100
+    Caption = 'Button1'
+    OnClick = Button1Click
+    TabOrder = 15
+  end
+  object Button2: TButton
+    Left = 293
+    Height = 29
+    Top = 439
+    Width = 68
+    Caption = 'Button2'
+    OnClick = Button2Click
+    TabOrder = 16
+  end
+  object ConnectionTimer: TTimer
+    Enabled = False
+    Interval = 200
+    OnTimer = ConnectionTimerTimer
+    Left = 976
+    Top = 56
+  end
+  object StoreTimer: TTimer
+    Enabled = False
+    Interval = 60000
+    OnTimer = StoreTimerTimer
+    Left = 1080
+    Top = 56
+  end
+end
