@@ -1,26 +1,15 @@
 object Form1: TForm1
-  Left = 298
-  Height = 536
-  Top = 124
-  Width = 1425
+  Left = 304
+  Height = 756
+  Top = 130
+  Width = 1343
   Caption = 'Form1'
-  ClientHeight = 536
-  ClientWidth = 1425
+  ClientHeight = 756
+  ClientWidth = 1343
+  OnClose = FormClose
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   LCLVersion = '2.3.0.0'
-  object Memo1: TMemo
-    Left = 336
-    Height = 244
-    Top = 264
-    Width = 1066
-    Anchors = [akTop, akLeft, akRight, akBottom]
-    Lines.Strings = (
-      'Memo1'
-    )
-    ScrollBars = ssAutoVertical
-    TabOrder = 0
-  end
   object btnActivePDO: TButton
     Left = 10
     Height = 54
@@ -85,19 +74,27 @@ object Form1: TForm1
     TabOrder = 7
   end
   object grpActivePDO: TGroupBox
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
     Left = 920
     Height = 152
     Top = 8
-    Width = 456
+    Width = 415
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Top = 8
+    BorderSpacing.Right = 8
     Caption = 'Active PDO'
     TabOrder = 8
     OnResize = grpActivePDOResize
   end
   object grpAllPDO: TGroupBox
+    AnchorSideTop.Control = Owner
     Left = 376
     Height = 152
     Top = 8
     Width = 536
+    BorderSpacing.Top = 8
     BorderSpacing.InnerBorder = 5
     Caption = 'Available PDOs'
     ClientHeight = 132
@@ -127,10 +124,12 @@ object Form1: TForm1
     end
   end
   object GroupBox1: TGroupBox
+    AnchorSideTop.Control = Owner
     Left = 8
     Height = 152
     Top = 8
     Width = 136
+    BorderSpacing.Top = 8
     Caption = 'GroupBox1'
     ClientHeight = 132
     ClientWidth = 132
@@ -155,10 +154,12 @@ object Form1: TForm1
     end
   end
   object grpPowerStatus: TGroupBox
+    AnchorSideTop.Control = Owner
     Left = 159
     Height = 152
     Top = 8
     Width = 201
+    BorderSpacing.Top = 8
     Caption = 'Power Status'
     ClientHeight = 132
     ClientWidth = 197
@@ -221,38 +222,282 @@ object Form1: TForm1
       TabOrder = 3
     end
   end
-  object Button1: TButton
-    Left = 136
-    Height = 62
-    Top = 200
-    Width = 168
-    Caption = 'Button1'
-    OnClick = Button1Click
+  object btnReset: TButton
+    Left = 10
+    Height = 52
+    Top = 528
+    Width = 126
+    Caption = 'Reset Controller'
+    OnClick = btnResetClick
     TabOrder = 12
   end
-  object btnDISC: TButton
-    Left = 243
-    Height = 52
-    Top = 306
-    Width = 86
-    Caption = 'DISC'
-    OnClick = btnDISCClick
+  object cmboSerialPorts: TComboBox
+    Left = 8
+    Height = 23
+    Top = 176
+    Width = 129
+    ItemHeight = 15
     TabOrder = 13
+    Text = 'Serial Ports'
   end
-  object Button2: TButton
-    Left = 556
-    Height = 36
-    Top = 202
-    Width = 105
-    Caption = 'Button2'
-    OnClick = Button2Click
+  object btnInit: TButton
+    Left = 8
+    Height = 33
+    Top = 216
+    Width = 177
+    Caption = 'Init and Connect Powersource'
+    OnClick = btnInitClick
     TabOrder = 14
+  end
+  object StartStopButton: TSpeedButton
+    Left = 256
+    Height = 41
+    Top = 280
+    Width = 177
+    AllowAllUp = True
+    Caption = 'Start'
+    Enabled = False
+    Font.Color = clLime
+    Font.Height = -27
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    GroupIndex = 1
+    OnClick = StartStopButtonClick
+    ParentFont = False
+  end
+  object btnTestPhoneDischarge: TSpeedButton
+    Left = 256
+    Height = 25
+    Top = 327
+    Width = 114
+    AllowAllUp = True
+    Caption = 'Test phone discharge'
+    Enabled = False
+    GroupIndex = 1
+    OnClick = btnTestDischargeClick
+  end
+  object btnTestTabletDischarge: TSpeedButton
+    Left = 256
+    Height = 25
+    Top = 352
+    Width = 114
+    AllowAllUp = True
+    Caption = 'Test tablet discharge'
+    Enabled = False
+    GroupIndex = 1
+    OnClick = btnTestDischargeClick
+  end
+  object btnMeasure: TButton
+    Left = 376
+    Height = 50
+    Top = 327
+    Width = 57
+    Caption = 'Measure'
+    Enabled = False
+    OnClick = btnMeasureClick
+    TabOrder = 15
+  end
+  object TypesBox: TComboBox
+    Left = 256
+    Height = 23
+    Top = 398
+    Width = 177
+    ItemHeight = 15
+    Items.Strings = (
+      'TA0001 Powerocks Stone 3'
+      'TA0002 Xtorm AL 420'
+      'TA0003 ISY IAP 3001'
+      'TA0004 TPLink TL - PB 10400'
+      'TA0005 PURO BB60P1 WHI'
+      'TA0006 Cellularline Freepower Multi 10000'
+      'TA0007 Energea Duo 9000'
+      'TA0008 PNY Powerpack T 7800'
+      'TA0009 GP Powerbank 8400mAh'
+      'TA00010 Samsung 8400mAh'
+      'TA00011 iWalk Extreme Duo 8200mAh'
+      'TA00012 Avanca Powerbar Pro 9000'
+    )
+    TabOrder = 16
+    Text = 'Enter battery type'
+  end
+  object SamplesBox: TComboBox
+    Left = 256
+    Height = 23
+    Top = 425
+    Width = 177
+    ItemHeight = 15
+    Items.Strings = (
+      '1'
+    )
+    TabOrder = 17
+    Text = 'Enter battery #'
+  end
+  object TestsBox: TComboBox
+    Left = 256
+    Height = 23
+    Top = 452
+    Width = 177
+    ItemHeight = 15
+    Items.Strings = (
+      'Telephone'
+      'Tablet'
+      'CurrentCurve'
+    )
+    OnChange = TestsBoxChange
+    TabOrder = 18
+    Text = 'Enter test type'
+  end
+  object DurationsBox: TComboBox
+    Left = 256
+    Height = 23
+    Top = 479
+    Width = 177
+    Enabled = False
+    ItemHeight = 15
+    Items.Strings = (
+      '0'
+      '600'
+      '3600'
+      '7200'
+      '10800'
+      '14400'
+      '86400'
+    )
+    TabOrder = 19
+    Text = 'Enter test duration'
+  end
+  object Label1: TLabel
+    Left = 256
+    Height = 21
+    Top = 506
+    Width = 67
+    AutoSize = False
+    Caption = 'Current [A]:'
+    Font.Color = clWindowText
+    Font.Height = -11
+    Font.Name = 'Tahoma'
+    Font.Style = [fsBold]
+    Layout = tlCenter
+    ParentFont = False
+  end
+  object CurrentEdit: TEdit
+    Left = 329
+    Height = 23
+    Top = 506
+    Width = 104
+    Enabled = False
+    OnKeyPress = CurrentEditKeyPress
+    TabOrder = 20
+    Text = '0'
+  end
+  object Chart1: TChart
+    Left = 456
+    Height = 418
+    Top = 176
+    Width = 871
+    AxisList = <    
+      item
+        Grid.Color = clWhite
+        TickColor = clWhite
+        AxisPen.Color = clWhite
+        AxisPen.Visible = True
+        Marks.LabelFont.Color = clAqua
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Title.LabelFont.Color = clAqua
+        Title.LabelFont.Orientation = 900
+        Title.Visible = True
+        Title.Caption = 'Voltage'
+        Title.LabelBrush.Style = bsClear
+      end    
+      item
+        Grid.Color = clWhite
+        Alignment = calBottom
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Title.LabelFont.Color = clWhite
+        Title.LabelBrush.Style = bsClear
+      end    
+      item
+        Alignment = calRight
+        Marks.LabelFont.Color = clRed
+        Marks.LabelBrush.Style = bsClear
+        Minors = <>
+        Title.LabelFont.Color = clRed
+        Title.LabelFont.Orientation = -900
+        Title.Visible = True
+        Title.Caption = 'Current'
+        Title.LabelBrush.Style = bsClear
+      end>
+    BackColor = clBlack
+    Foot.Brush.Color = clBtnFace
+    Foot.Font.Color = clBlue
+    Title.Brush.Color = clBtnFace
+    Title.Font.Color = clBlue
+    Title.Text.Strings = (
+      'TChart'
+    )
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    Color = clBlack
+    object Series1: TLineSeries
+      Title = 'Voltage'
+      LinePen.Color = clAqua
+      LinePen.Width = 4
+    end
+    object Series2: TLineSeries
+      Title = 'Current'
+      LinePen.Color = clYellow
+      LinePen.Width = 4
+    end
+    object Series3: TLineSeries
+      Active = False
+      Title = 'SetCurrent'
+      LinePen.Color = clRed
+      LinePen.Width = 4
+    end
+  end
+  object Memo1: TMemo
+    Left = 24
+    Height = 128
+    Top = 602
+    Width = 409
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    Lines.Strings = (
+      'Memo1'
+    )
+    ScrollBars = ssAutoVertical
+    TabOrder = 0
+  end
+  object DisplaysPanel: TPanel
+    AnchorSideLeft.Control = Chart1
+    AnchorSideTop.Control = Chart1
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Chart1
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 456
+    Height = 146
+    Top = 602
+    Width = 871
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    BorderSpacing.Top = 8
+    BorderSpacing.Bottom = 8
+    TabOrder = 22
+    OnResize = DisplaysPanelResize
   end
   object ConnectionTimer: TTimer
     Enabled = False
     Interval = 200
     OnTimer = ConnectionTimerTimer
-    Left = 400
-    Top = 360
+    Left = 976
+    Top = 56
+  end
+  object StoreTimer: TTimer
+    Enabled = False
+    Interval = 60000
+    OnTimer = StoreTimerTimer
+    Left = 1080
+    Top = 56
   end
 end
