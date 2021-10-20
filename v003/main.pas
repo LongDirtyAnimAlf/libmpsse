@@ -22,6 +22,9 @@ type
     btnGetTXSourcePDOs: TButton;
     btnGetTXSinkPDOs: TButton;
     btnDisConnect: TButton;
+    Button1: TButton;
+    btnDISC: TButton;
+    Button2: TButton;
     editPowerStatusUSBCurrent: TEdit;
     gridRemotePDO: TStringGrid;
     GroupBox1: TGroupBox;
@@ -32,7 +35,8 @@ type
     memoPowerStatusChargerDetectStatus: TMemo;
     rbSource: TRadioButton;
     rbSink: TRadioButton;
-    Timer1: TTimer;
+    ConnectionTimer: TTimer;
+    procedure btnDISCClick(Sender: TObject);
     procedure btnDisConnectClick(Sender: TObject);
     procedure btnGetRDOClick(Sender: TObject);
     procedure btnGetTXSinkPDOsClick(Sender: TObject);
@@ -41,16 +45,20 @@ type
     procedure btnConnectClick(Sender: TObject);
     procedure btnActivePDOClick(Sender: TObject);
     procedure btnSourcePDOsClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
     procedure grpActivePDOResize(Sender: TObject);
-    procedure Timer1Timer(Sender: TObject);
+    procedure ConnectionTimerTimer(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
     TPS65987:TTPS65987;
     PC: PortConfiguration;
-
+    TimersBusy          : integer;
     VoltageDisplay      : TdsSevenSegmentMultiDisplay;
     CurrentDisplay      : TdsSevenSegmentMultiDisplay;
+    function WaitOnTimer:boolean;
+    procedure ReleaseTimer;
     procedure GridButtonClick(Sender: TObject);
   public
 
@@ -63,8 +71,8 @@ implementation
 
 {$R *.lfm}
 
-const
-  SLEEP_DURATION          = 25;
+uses
+  tools;
 
 function ChangeBrightness(lIn: tColor; factor:double): TColor;
 var
@@ -82,12 +90,14 @@ procedure TForm1.GridButtonClick(Sender: TObject);
 var
   Button: TButton absolute Sender;
   SinkPDS: TXSINKPDS;
+  AutoSink:AutoNegotiateSink;
   s:string;
   Voltage:integer;
   Current:integer;
+  RestartTimer:boolean;
 begin
-  Memo1.Lines.Append(Button.Name);
   TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
   try
     s:=gridRemotePDO.Cells[Button.Tag,3];
     s:=StringReplace(s,'Volt','',[]);
@@ -103,30 +113,40 @@ begin
 
     SinkPDS.Header.TXSinkNumValidPDOs:=2;
 
-    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=0;
+    SinkPDS.TXSinkPDOs[0].GenericPdo.Supply:=Ord(TSUPPLY_TYPES.Fixed);
     SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.OperationalCurrentIn10mA:=(3000 DIV 10);
     SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.VoltageIn50mV:=(5000 DIV 50);
     SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
     SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
 
-    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=2;
+    SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=Ord(TSUPPLY_TYPES.Variable);
     SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=round(((Voltage-1)*1000/50));
     SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=round(((Voltage+1)*1000/50));
-    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(Current DIV 10);
-    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(Current DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(5000 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(0 DIV 10);
     SinkPDS.TXSinkPDOExtensions[1].PdoExtension.AskForMax:=1;
 
     if TPS65987.SetTXSinkPDOs(SinkPDS) then
     begin
-      if TPS65987.SendCommand('ANeg') then
+      AutoSink.AutoNgt:=1;
+      AutoSink.AutoNgtSnkBattery:=1;
+      AutoSink.AutoNgtSnkVariable:=1;
+      AutoSink.RDOUsbCommCapableFlag:=1;
+      AutoSink.OfferPriority:=1;
+      AutoSink.RDONoUsbSuspFlag:=1;
+      AutoSink.AutoComputeSinkMinPower:=0;
+      AutoSink.ANSinkMinRequiredPower:=0;
+      if TPS65987.SetAutoSink(AutoSink) then
       begin
-        Memo1.Lines.Append('Command set success !');
+        if TPS65987.SendCommand('ANeg') then
+        begin
+          Memo1.Lines.Append('Command ANeg success !');
+        end;
       end;
     end;
-    Timer1Timer(nil);
-    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
   end;
 end;
 
@@ -176,8 +196,10 @@ begin
     bt.OnMouseUp := gridRemotePDO.OnMouseUp;
     bt.OnMouseMove := gridRemotePDO.OnMouseMove;
     bt.Visible := true;
-    bt.OnClick:=@GridButtonClick;
+    bt.OnClick := @GridButtonClick;
   end;
+
+  TimersBusy:=integer(false);
 
   TPS65987:=TTPS65987.Create;
 end;
@@ -206,92 +228,98 @@ begin
   CurrentDisplay.Top:=VoltageDisplay.Top;
 end;
 
-procedure TForm1.Timer1Timer(Sender: TObject);
+procedure TForm1.ConnectionTimerTimer(Sender: TObject);
 var
   ActivePDO    : USBC_SOURCE_PD_POWER_DATA_OBJECT;
   RemotePDOs   : RXSOURCEPDS;
   Status       : PowerStatus;
   i            : integer;
-  s            : string;
 begin
-  i:=0;
+  if InterLockedExchange(TimersBusy, integer(True))<>integer(True) then
+  try
+    i:=0;
 
-  FillChar({%H-}Status,SizeOf(Status),0);
-  if NOT TPS65987.GetPowerStatus(Status) then Status.PowerConnection:=0;
+    FillChar({%H-}Status,SizeOf(Status),0);
+    if NOT TPS65987.GetPowerStatus(Status) then Status.PowerConnection:=0;
 
-  if (Status.PowerConnection=1) then
-  begin
-    Timer1.Enabled:=False;
-
-    editPowerStatusUSBCurrent.Text:=POWER_STATUS_CURRENT_DETAILS[Status.TypeCCurrent];
-    memoPowerStatusChargerDetectStatus.Text:=CHARGER_DETECT_STATUS[Status.ChargerDetectStatus];
-
-    rbSink.Checked:=(Status.SourceSink=1);
-    rbSource.Checked:=(Status.SourceSink=0);
-
-    if (Status.TypeCCurrent=0) then
+    if (Status.PowerConnection=1) then
     begin
-      VoltageDisplay.Value:=5;
-      CurrentDisplay.Value:=0.5;
-    end
-    else
-    if (Status.TypeCCurrent=1) then
-    begin
-      VoltageDisplay.Value:=5;
-      CurrentDisplay.Value:=1.5;
-    end
-    else
-    if (Status.TypeCCurrent=2) then
-    begin
-      VoltageDisplay.Value:=5;
-      CurrentDisplay.Value:=3;
-    end
-    else
-    begin
-      FillChar({%H-}ActivePDO,SizeOf(ActivePDO),0);
-      if TPS65987.ActivePDO(ActivePDO) then
+      ConnectionTimer.Interval:=1000;
+
+      editPowerStatusUSBCurrent.Text:=POWER_STATUS_CURRENT_DETAILS[Status.TypeCCurrent];
+      memoPowerStatusChargerDetectStatus.Text:=CHARGER_DETECT_STATUS[Status.ChargerDetectStatus];
+
+      rbSink.Checked:=(Status.SourceSink=1);
+      rbSource.Checked:=(Status.SourceSink=0);
+
+      if (Status.TypeCCurrent=0) then
       begin
-        VoltageDisplay.Value:=ActivePDO.FixedSupplyPdo.VoltageIn50mV*50/1000;
-        CurrentDisplay.Value:=ActivePDO.FixedSupplyPdo.MaximumCurrentIn10mA*10/1000;
-      end;
-    end;
-
-    FillChar({%H-}RemotePDOs,SizeOf(RemotePDOs),0);
-    if TPS65987.GetSourcePDOs(RemotePDOs) then
-    begin
-      if (RemotePDOs.Header.NumValidPDO>0) then
+        VoltageDisplay.Value:=5;
+        CurrentDisplay.Value:=0.5;
+      end
+      else
+      if (Status.TypeCCurrent=1) then
       begin
-        while (i<RemotePDOs.Header.NumValidPDO) AND (i<Pred(gridRemotePDO.ColCount)) do
+        VoltageDisplay.Value:=5;
+        CurrentDisplay.Value:=1.5;
+      end
+      else
+      if (Status.TypeCCurrent=2) then
+      begin
+        VoltageDisplay.Value:=5;
+        CurrentDisplay.Value:=3;
+      end
+      else
+      begin
+        FillChar({%H-}ActivePDO,SizeOf(ActivePDO),0);
+        if TPS65987.ActivePDO(ActivePDO) then
         begin
-          gridRemotePDO.Cells[1+i,0]:='PDO '+InttoStr(i+1);
-          gridRemotePDO.Cells[1+i,1]:=SUPPLY_TYPES[RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply];
-          gridRemotePDO.Cells[1+i,2]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA';
-          gridRemotePDO.Cells[1+i,3]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt';
-          Inc(i);
+          VoltageDisplay.Value:=ActivePDO.FixedSupplyPdo.VoltageIn50mV*50/1000;
+          CurrentDisplay.Value:=ActivePDO.FixedSupplyPdo.MaximumCurrentIn10mA*10/1000;
         end;
       end;
+
+      FillChar({%H-}RemotePDOs,SizeOf(RemotePDOs),0);
+      if TPS65987.GetSourcePDOs(RemotePDOs) then
+      begin
+        if (RemotePDOs.Header.NumValidPDO>0) then
+        begin
+          while (i<RemotePDOs.Header.NumValidPDO) AND (i<Pred(gridRemotePDO.ColCount)) do
+          begin
+            gridRemotePDO.Cells[1+i,0]:='PDO '+InttoStr(i+1);
+            gridRemotePDO.Cells[1+i,1]:=SUPPLY_TYPES[RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply];
+            gridRemotePDO.Cells[1+i,2]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA';
+            gridRemotePDO.Cells[1+i,3]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt';
+            TButton(gridRemotePDO.Objects[1+i,4]).Enabled:=true;
+            Inc(i);
+          end;
+        end;
+      end;
+    end
+    else
+    begin
+      editPowerStatusUSBCurrent.Text:='No connection';
+      memoPowerStatusChargerDetectStatus.Text:='';
+      VoltageDisplay.Value:=0;
+      CurrentDisplay.Value:=0;
+      rbSink.Checked:=false;
+      rbSource.Checked:=false;
+      ConnectionTimer.Interval:=250;
     end;
-  end
-  else
-  begin
-    editPowerStatusUSBCurrent.Text:='No connection';
-    memoPowerStatusChargerDetectStatus.Text:='';
-    VoltageDisplay.Value:=0;
-    CurrentDisplay.Value:=0;
-    rbSink.Checked:=false;
-    rbSource.Checked:=false;
-    Timer1.Enabled:=True;
-  end;
 
-  while (i<Pred(gridRemotePDO.ColCount)) do
-  begin
-    gridRemotePDO.Cells[1+i,0]:='';
-    gridRemotePDO.Cells[1+i,1]:='';
-    gridRemotePDO.Cells[1+i,2]:='';
-    gridRemotePDO.Cells[1+i,3]:='';
-    Inc(i);
-  end;
+    while (i<Pred(gridRemotePDO.ColCount)) do
+    begin
+      gridRemotePDO.Cells[1+i,0]:='';
+      gridRemotePDO.Cells[1+i,1]:='';
+      gridRemotePDO.Cells[1+i,2]:='';
+      gridRemotePDO.Cells[1+i,3]:='';
+      TButton(gridRemotePDO.Objects[1+i,4]).Enabled:=false;
+      Inc(i);
+    end;
 
+  finally
+    InterLockedExchange(TimersBusy, integer(False));
+  end;
 end;
 
 procedure TForm1.btnConnectClick(Sender: TObject);
@@ -303,7 +331,7 @@ begin
       if Sender=btnConnectSink then TPS65987.Address:=ADDRESS_TPS65987_SINK;
       if Sender=btnConnectSource then TPS65987.Address:=ADDRESS_TPS65987_SOURCE;
       Memo1.Lines.Append('Connected');
-      Timer1.Enabled:=True;
+      ConnectionTimer.Enabled:=True;
     end
     else
       Memo1.Lines.Append('Connect failure');
@@ -316,8 +344,10 @@ procedure TForm1.btnSinkPDOsClick(Sender: TObject);
 var
   SinkPDOs : RXSINKPDS;
   i,j      : integer;
+  RestartTimer:boolean;
 begin
   TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
   try
     FillChar({%H-}SinkPDOs,SizeOf(SinkPDOs),0);
     if TPS65987.GetSinkPDOs(SinkPDOs) then
@@ -347,14 +377,17 @@ begin
     end;
   finally
     TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
   end;
 end;
 
 procedure TForm1.btnGetRDOClick(Sender: TObject);
 var
   RDO: USBC_PD_REQUEST_DATA_OBJECT;
+  RestartTimer:boolean;
 begin
   TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
   try
     FillChar({%H-}RDO,SizeOf(RDO),0);
     if TPS65987.GetActiveRDO(RDO) then
@@ -362,7 +395,6 @@ begin
       Memo1.Lines.Append('RDO. MaxCurrent: '+InttoStr(RDO.FixedAndVariableRdo.MaximumOperatingCurrentIn10mA*10)+ 'mA');
       Memo1.Lines.Append('RDO. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
     end;
-    Sleep(SLEEP_DURATION);
 
     FillChar({%H-}RDO,SizeOf(RDO),0);
     if TPS65987.GetSinkRDO(RDO) then
@@ -370,9 +402,9 @@ begin
       Memo1.Lines.Append('RDO sink. MaxCurrent: '+InttoStr(RDO.FixedAndVariableRdo.MaximumOperatingCurrentIn10mA*10)+ 'mA');
       Memo1.Lines.Append('RDO sink. Current: '+InttoStr(RDO.FixedAndVariableRdo.OperatingCurrentIn10mA*10)+ 'mA');
     end;
-    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
   end;
 
 end;
@@ -380,6 +412,7 @@ end;
 procedure TForm1.btnDisConnectClick(Sender: TObject);
 begin
   TButton(Sender).Enabled:=false;
+  WaitOnTimer;
   try
     if TPS65987.DisConnect then
     begin
@@ -390,16 +423,35 @@ begin
   finally
     TButton(Sender).Enabled:=true;
   end;
-
 end;
 
+procedure TForm1.btnDISCClick(Sender: TObject);
+var
+  RestartTimer:boolean;
+  Data:byte;
+begin
+  TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
+  try
+    Data:=5; // delay in seconds
+    if TPS65987.SendCommand('DISC',1,@Data) then
+    begin
+      Memo1.Lines.Append('Command DISC success !');
+    end;
+  finally
+    TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
+  end;
+end;
 
 procedure TForm1.btnGetTXSinkPDOsClick(Sender: TObject);
 var
   SinkPDS: TXSINKPDS;
   i,j:integer;
+  RestartTimer:boolean;
 begin
   TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
   try
     FillChar({%H-}SinkPDS,SizeOf(SinkPDS),0);
     if TPS65987.GetTXSinkPDOs(SinkPDS) then
@@ -434,9 +486,9 @@ begin
       end;
 
     end;
-    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
   end;
 end;
 
@@ -444,8 +496,10 @@ procedure TForm1.btnGetTXSourcePDOsClick(Sender: TObject);
 var
   SourcePDS: TXSOURCEPDS;
   i:integer;
+  RestartTimer:boolean;
 begin
   TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
   try
     FillChar({%H-}SourcePDS,SizeOf(SourcePDS),0);
     if TPS65987.GetTXSourcePDOs(SourcePDS) then
@@ -474,17 +528,19 @@ begin
         end;
       end;
     end;
-    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
   end;
 end;
 
 procedure TForm1.btnActivePDOClick(Sender: TObject);
 var
   PDO: USBC_SOURCE_PD_POWER_DATA_OBJECT;
+  RestartTimer:boolean;
 begin
   TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
   try
     FillChar({%H-}PDO,SizeOf(PDO),0);
     if TPS65987.ActivePDO(PDO) then
@@ -492,10 +548,10 @@ begin
       Memo1.Lines.Append('PDO. Current: '+InttoStr(PDO.FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
       Memo1.Lines.Append('PDO. Voltage: '+InttoStr(PDO.FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
     end;
-    Sleep(SLEEP_DURATION);
 
   finally
     TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
   end;
 end;
 
@@ -503,8 +559,10 @@ procedure TForm1.btnSourcePDOsClick(Sender: TObject);
 var
   SourcePDOs : RXSOURCEPDS;
   i          : integer;
+  RestartTimer:boolean;
 begin
   TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
   try
     FillChar({%H-}SourcePDOs,SizeOf(SourcePDOs),0);
     if TPS65987.GetSourcePDOs(SourcePDOs) then
@@ -521,11 +579,66 @@ begin
         end;
       end;
     end;
-    Sleep(SLEEP_DURATION);
   finally
     TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
   end;
 end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+var
+  RestartTimer:boolean;
+begin
+  TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
+  try
+    if TPS65987.SendCommand('ANeg') then
+    begin
+      Memo1.Lines.Append('Command ANeg success !');
+    end;
+  finally
+    TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
+  end;
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+var
+  aConfig:PortConfiguration;
+  RestartTimer:boolean;
+begin
+  TButton(Sender).Enabled:=false;
+  RestartTimer:=WaitOnTimer;
+  try
+    FillChar({%H-}aConfig,SizeOf(aConfig),0);
+    if TPS65987.GetPortConfig(aConfig) then
+    begin
+      if TPS65987.SetPortConfig(aConfig) then
+      begin
+      end;
+    end;
+  finally
+    TButton(Sender).Enabled:=true;
+    if RestartTimer then ReleaseTimer;
+  end;
+end;
+
+function TForm1.WaitOnTimer:boolean;
+begin
+  while TimersBusy=integer(True) do
+  begin
+    Sleep(10);
+    Application.ProcessMessages;
+  end;
+  result:=ConnectionTimer.Enabled;
+  ConnectionTimer.Enabled:=False;
+end;
+
+procedure TForm1.ReleaseTimer;
+begin
+  ConnectionTimer.Enabled:=True;
+end;
+
 
 end.
 

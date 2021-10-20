@@ -8,6 +8,10 @@ uses
   Classes, SysUtils,
   bits,libmpsse;
 
+type
+  TSUPPLY_TYPES = (Fixed,Battery,Variable,Reserved);
+
+
 const
   ADDRESS_TPS65987_SINK   = $21;
   ADDRESS_TPS65987_SOURCE = $20;
@@ -496,6 +500,35 @@ type
        );
   end;
 
+  AutoNegotiateSink = bitpacked record //0x37
+     AutoNgt                 : T1BITS;
+     AutoNgtSnkBattery       : T1BITS;
+     AutoNgtSnkVariable      : T1BITS;
+     RDOUsbCommCapableFlag   : T1BITS;
+     OfferPriority           : T2BITS;
+     RDONoUsbSuspFlag        : T1BITS;
+     RDOGiveBackFlag         : T1BITS;
+     AutoComputeSinkMinPower : T1BITS;
+     Reserved1               : T7BITS;
+     ANSinkMinRequiredPower  : T10BITS;
+     Reserved2               : T6BITS;
+     OperatingPower          : T10BITS;
+     MinOperatingPower       : T10BITS;
+     Reserved3               : T12BITS;
+     OperatingCurrent        : T10BITS;
+     MinOperatingCurrent     : T10BITS;
+     Reserved4               : T12BITS;
+     MaximumPower            : T10BITS;
+     MaximumVoltage          : T10BITS;
+     Reserved5               : T2BITS;
+     MinimumVoltage          : T10BITS;
+     MaximumCurrent          : T10BITS;
+     Reserved6               : T10BITS;
+     PeakCurrent             : T2BITS;
+     Reserved                : T10BITS;
+  end;
+
+
   TTPS65987 = class(TObject)
   private
     FAddress:byte;
@@ -516,7 +549,11 @@ type
     function GetPortConfig(var aConfig:PortConfiguration):boolean;
     function SetPortConfig(aConfig:PortConfiguration):boolean;
     function GetPowerStatus(var aStatus:PowerStatus):boolean;
-    function SendCommand(aCommand:string):boolean;
+
+    function GetAutoSink(var aSink:AutoNegotiateSink):boolean;
+    function SetAutoSink(aSink:AutoNegotiateSink):boolean;
+
+    function SendCommand(const aCommand:string;const aLength:byte=0;const aData:pbyte=nil):boolean;
     property Address:byte write FAddress;
   end;
 
@@ -637,21 +674,44 @@ begin
   result:=LibMPSSE.I2C_Read(FAddress,REGISTER_POWER_STATUS,SizeOf(aStatus),PByte(@aStatus));
 end;
 
-function TTPS65987.SendCommand(aCommand:string):boolean;
+function TTPS65987.GetAutoSink(var aSink:AutoNegotiateSink):boolean;
+begin
+  if (FAddress=0) then exit(false);
+  result:=LibMPSSE.I2C_Read(FAddress,REGISTER_AUTO_SINK,SizeOf(aSink),PByte(@aSink));
+end;
+
+function TTPS65987.SetAutoSink(aSink:AutoNegotiateSink):boolean;
+begin
+  if (FAddress=0) then exit(false);
+  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_AUTO_SINK,SizeOf(aSink),PByte(@aSink));
+end;
+
+
+function TTPS65987.SendCommand(const aCommand:string;const aLength:byte;const aData:pbyte):boolean;
 var
   aCmd:packed array [0..3] of Byte;
   i:integer;
-  s:string;
 begin
   if (FAddress=0) then exit(false);
   if (Length(aCommand)<>4) then exit(false);
-  FillChar({%H-}aCmd,SizeOf(aCmd),0);
-  for i:=1 to 4 do
+
+  if ((aLength>0) AND (aData<>nil)) then
+    result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0+1,aLength,aCmd)
+  else
+    result:=true;
+
+  if result then
   begin
-    aCmd[i-1]:=Ord(aCommand[i]);
+    FillChar({%H-}aCmd,SizeOf(aCmd),0);
+    for i:=1 to 4 do
+    begin
+      aCmd[i-1]:=Ord(aCommand[i]);
+    end;
+    result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0,4,@aCmd);
   end;
-  result:=LibMPSSE.I2C_Write(FAddress,REGISTER_CMD0,4,@aCmd);
+
 end;
+
 
 
 end.
