@@ -165,7 +165,7 @@ begin
     begin
       //config.ClockRate:=I2C_CLOCK_STANDARD_MODE;
       config.ClockRate:=I2C_CLOCK_FAST_MODE;
-      config.LatencyTimer:=25;
+      config.LatencyTimer:=2;
       config.Options := 0;
       result:=(I2C_InitChannel(Handle,@config)=Ord(FT_OK));
     end;
@@ -182,28 +182,6 @@ begin
     result:=true;
   end;
 end;
-
-{
-function TLibMPSSE.I2C_Write(DeviceAddress,DeviceRegister:Byte;ToWrite:Word;Buffer:PByte):boolean;
-var
-  NumBytes,NumBytesReturned:uint32;
-  buf:packed array [0..I2C_DEVICE_BUFFER_SIZE-1] of Byte;
-  pbuf: pbyte;
-begin
-  result:=false;
-  if Assigned(Handle) then
-  begin
-    FillChar({%H-}buf,SizeOf(buf),0);
-    pbuf:=@buf;
-    NumBytes:=ToWrite+1;
-    NumBytesReturned:=0;
-    pbuf^:=DeviceRegister;
-    Inc(pbuf);
-    if (Buffer<>nil) then Move(buffer^,pbuf^,ToWrite);
-    result:=(I2C_DeviceWrite(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,(I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_STOP_BIT OR I2C_TRANSFER_OPTIONS_NACK_LAST_BYTE))=Ord(FT_OK));
-  end;
-end;
-}
 
 function TLibMPSSE.I2C_Write(DeviceAddress,DeviceRegister:Byte;ToWrite:Word;Buffer:PByte):boolean;
 var
@@ -235,12 +213,19 @@ begin
     NumBytesReturned:=0;
     FillChar({%H-}buf,SizeOf(buf),0);
     buf[0]:=DeviceRegister;
-    result:=(I2C_DeviceWrite(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,I2C_TRANSFER_OPTIONS_START_BIT)=Ord(FT_OK));
+    result:=(I2C_DeviceWrite(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,(I2C_TRANSFER_OPTIONS_START_BIT {OR I2C_TRANSFER_OPTIONS_FAST_TRANSFER_BYTES}))=Ord(FT_OK));
 
-    NumBytes:=ToRead+1;
-    NumBytesReturned:=0;
-    result:=(I2C_DeviceRead(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,(I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_NACK_LAST_BYTE OR I2C_TRANSFER_OPTIONS_STOP_BIT))=Ord(FT_OK));
-    Move(buf[1],buffer^,ToRead);
+    if result then
+    begin
+      NumBytes:=ToRead+1;
+      NumBytesReturned:=0;
+      FillChar({%H-}buf,SizeOf(buf),0);
+      result:=(I2C_DeviceRead(Handle,DeviceAddress,NumBytes,@buf[0],@NumBytesReturned,(I2C_TRANSFER_OPTIONS_START_BIT OR I2C_TRANSFER_OPTIONS_STOP_BIT OR I2C_TRANSFER_OPTIONS_NACK_LAST_BYTE {OR I2C_TRANSFER_OPTIONS_FAST_TRANSFER_BYTES}))=Ord(FT_OK));
+      if result then
+      begin
+        Move(buf[1],buffer^,ToRead);
+      end;
+    end;
   end;
 end;
 

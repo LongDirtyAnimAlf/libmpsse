@@ -217,6 +217,24 @@ object Form1: TForm1
       ReadOnly = True
       TabOrder = 3
     end
+    object btnUpdatePDData: TButton
+      AnchorSideLeft.Control = editPowerStatusUSBCurrent
+      AnchorSideLeft.Side = asrCenter
+      AnchorSideTop.Control = editPowerStatusUSBCurrent
+      AnchorSideTop.Side = asrBottom
+      Left = 83
+      Height = 25
+      Hint = 'Force update of PD data.'
+      Top = 31
+      Width = 31
+      AutoSize = True
+      BorderSpacing.Top = 4
+      Caption = '?'
+      OnClick = btnUpdatePDDataClick
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 4
+    end
   end
   object cmboSerialPorts: TComboBox
     AnchorSideTop.Control = btnInit
@@ -502,7 +520,7 @@ object Form1: TForm1
     BorderSpacing.Top = 12
     BorderSpacing.Bottom = 8
     Lines.Strings = (
-      'Memo1'
+      ''
     )
     ScrollBars = ssAutoVertical
     TabOrder = 0

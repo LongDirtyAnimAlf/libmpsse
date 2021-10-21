@@ -39,10 +39,10 @@ const
     'Reserved');
 
   POWER_STATUS_CURRENT_DETAILS : array[0..3] of string = (
-    'USB Default Current',
-    '1.5A Current',
-    '3A Current',
-    'PD contract negotiated');
+    'USB default current',
+    '1.5A current',
+    '3A current',
+    'PD contract ready');
   PD_STATUS_PLUGDETAILS : array[0..3] of string = (
     'USB Type-C full-featured plug',
     'USB 2.0 Type-C plug',
@@ -595,6 +595,7 @@ end;
 
 function TTPS65987.Init:boolean;
 begin
+  result:=LibMPSSE.I2C_Close;
   result:=LibMPSSE.I2C_Init(1);
 end;
 

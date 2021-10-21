@@ -28,6 +28,7 @@ type
     btnTestTabletDischarge: TSpeedButton;
     Button1: TButton;
     Button2: TButton;
+    btnUpdatePDData: TButton;
     Chart1: TChart;
     cmboSerialPorts: TComboBox;
     CurrentEdit: TEdit;
@@ -59,6 +60,7 @@ type
     procedure btnResetClick(Sender: TObject);
     procedure btnConnectClick(Sender: TObject);
     procedure btnTestDischargeClick(Sender: TObject);
+    procedure btnUpdatePDDataClick(Sender: TObject);
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure CurrentEditKeyPress(Sender: TObject; var Key: char);
@@ -182,7 +184,6 @@ end;
 
 procedure TForm1.GridButtonClick(Sender: TObject);
 var
-  Button: TButton absolute Sender;
   SinkPDS: TXSINKPDS;
   AutoSink:AutoNegotiateSink;
   s:string;
@@ -190,12 +191,26 @@ var
   PDOCurrent:integer;
   RestartTimer:boolean;
   PDONumber:byte;
+  index:integer;
+  aButton:TButton;
 begin
   PDONumber:=0;
   if (Sender<>nil) then
   begin
-    PDONumber:=TButton(Sender).Tag;
-    TButton(Sender).Enabled:=false;
+    for index:=1 to gridRemotePDO.ColCount do
+    begin
+      aButton:=TButton(gridRemotePDO.Objects[index,4]);
+      if (aButton=nil) then break;
+      if (aButton.Tag<>0)
+        then aButton.Enabled:=false
+      else
+        break;
+      aButton.Invalidate;
+    end;
+    sleep(100);
+    Application.ProcessMessages;
+    aButton:=TButton(Sender);
+    PDONumber:=aButton.Tag;
     RestartTimer:=WaitOnTimer;
   end;
   try
@@ -214,37 +229,64 @@ begin
 
     FillChar({%H-}SinkPDS,SizeOf(SinkPDS),0);
 
-    if (Sender=nil) then
-      SinkPDS.Header.TXSinkNumValidPDOs:=1
+    if (PDONumber<>0) then
+      SinkPDS.Header.TXSinkNumValidPDOs:=2
     else
-      SinkPDS.Header.TXSinkNumValidPDOs:=2;
+      SinkPDS.Header.TXSinkNumValidPDOs:=1;
 
     SinkPDS.TXSinkPDOs[0].GenericPdo.Supply:=Ord(TSUPPLY_TYPES.Fixed);
-    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.OperationalCurrentIn10mA:=(500 DIV 10);
+    SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.OperationalCurrentIn10mA:=(3000 DIV 10);
     SinkPDS.TXSinkPDOs[0].FixedSupplyPdo.VoltageIn50mV:=(5000 DIV 50);
     SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MaxOperatingCurrentOrPower:=(3000 DIV 10);
-    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=(500 DIV 10);
+    SinkPDS.TXSinkPDOExtensions[0].PdoExtension.MinOperatingCurrentOrPower:=(900 DIV 10);
 
     if (PDONumber<>0) then
     begin
+      {
       SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=Ord(TSUPPLY_TYPES.Variable);
-      SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=round(((PDOVoltage-1)*1000/50));
-      SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=round(((PDOVoltage+1)*1000/50));
+      SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.OperationalCurrentIn10mA:=(1000 DIV 10);;
+      SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV:=round(((PDOVoltage-2)*1000/50));
+      SinkPDS.TXSinkPDOs[1].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV:=round(((PDOVoltage+2)*1000/50));
       SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(5000 DIV 10);
       SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(0 DIV 10);
       SinkPDS.TXSinkPDOExtensions[1].PdoExtension.AskForMax:=1;
+      }
+
+      SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=Ord(TSUPPLY_TYPES.Fixed);
+      SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.OperationalCurrentIn10mA:=(PDOCurrent DIV 10);
+      SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.VoltageIn50mV:=round(((PDOVoltage)*1000/50));
+      SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(5000 DIV 10);
+      SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(500 DIV 10);
+
+
+      Memo1.Lines.Append('Sending sink PDO. OperationalCurrent: '+InttoStr(SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.OperationalCurrentIn10mA*10)+ 'mA');
+      Memo1.Lines.Append('Sending sink PDO. Voltage: '+InttoStr(SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+      Memo1.Lines.Append('Sending sink PDO. MinOperatingCurrent: '+InttoStr(SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower*10)+ 'mA');
+      Memo1.Lines.Append('Sending sink PDO. MaxOperatingCurrent: '+InttoStr(SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower*10)+ 'mA');
+
     end;
 
     if TPS65987.SetTXSinkPDOs(SinkPDS) then
     begin
+      FillChar({%H-}AutoSink,SizeOf(AutoSink),0);
+
+      {
       AutoSink.AutoNgt:=1;
       AutoSink.AutoNgtSnkBattery:=1;
       AutoSink.AutoNgtSnkVariable:=1;
       AutoSink.RDOUsbCommCapableFlag:=1;
       AutoSink.OfferPriority:=1;
       AutoSink.RDONoUsbSuspFlag:=1;
+      AutoSink.AutoComputeSinkMinPower:=1;
+      AutoSink.ANSinkMinRequiredPower:=round(((100)*1000/250));
+      //AutoSink.ANSinkMinRequiredPower:=0;
+      }
+
+      TPS65987.GetAutoSink(AutoSink);
       AutoSink.AutoComputeSinkMinPower:=0;
-      AutoSink.ANSinkMinRequiredPower:=0;
+      AutoSink.ANSinkMinRequiredPower:=round(PDOVoltage*PDOCurrent/250);
+      Memo1.Lines.Append('AutoSink SinkMinRequiredPower: '+InttoStr(AutoSink.ANSinkMinRequiredPower*250 DIV 1000)+ 'W');
+
       if TPS65987.SetAutoSink(AutoSink) then
       begin
         if TPS65987.SendCommand('ANeg') then
@@ -256,8 +298,21 @@ begin
   finally
     if (Sender<>nil) then
     begin
-      TButton(Sender).Enabled:=true;
-      if RestartTimer then ReleaseTimer;
+      for index:=1 to gridRemotePDO.ColCount do
+      begin
+        aButton:=TButton(gridRemotePDO.Objects[index,4]);
+        if (aButton=nil) then break;
+        if (aButton.Tag<>0)
+          then aButton.Enabled:=true
+        else
+          break;
+      end;
+      //sleep(50);
+      //Application.ProcessMessages;
+      if RestartTimer then
+        ReleaseTimer
+      else
+        ConnectionTimerTimer(nil);
     end;
   end;
 end;
@@ -293,24 +348,25 @@ begin
 
   for ACol:=1 to 7  do
   begin
-    ARow := 4;
-    Rect := gridRemotePDO.CellRect(ACol,ARow);
-    bt := TButton.Create(gridRemotePDO);
-    bt.Parent := gridRemotePDO;
-    bt.Width := Rect.Width-4;
-    bt.Top := Rect.Top+1;
-    bt.Left := Rect.Left+2;
-    bt.Height := Rect.Height-3;
-    bt.Caption := 'Select';
-    bt.Name := 'bt'+IntToStr(ACol);
-    bt.Tag := ACol;
-    index := gridRemotePDO.ComponentCount-1;
-    bt :=(gridRemotePDO.Components[index] as TButton);
+    ARow           := 4;
+    Rect           := gridRemotePDO.CellRect(ACol,ARow);
+    bt             := TButton.Create(gridRemotePDO);
+    bt.Parent      := gridRemotePDO;
+    bt.Width       := Rect.Width-4;
+    bt.Top         := Rect.Top+1;
+    bt.Left        := Rect.Left+2;
+    bt.Height      := Rect.Height-3;
+    bt.Caption     := 'Select';
+    bt.Name        := 'bt'+IntToStr(ACol);
+    bt.Tag         := 0;
+    bt.Enabled     := false;
+    index          := gridRemotePDO.ComponentCount-1;
+    bt             :=(gridRemotePDO.Components[index] as TButton);
     gridRemotePDO.Objects[ACol,ARow] := gridRemotePDO.Components[index];
-    bt.OnMouseUp := gridRemotePDO.OnMouseUp;
+    bt.OnMouseUp   := gridRemotePDO.OnMouseUp;
     bt.OnMouseMove := gridRemotePDO.OnMouseMove;
-    bt.Visible := true;
-    bt.OnClick := @GridButtonClick;
+    bt.Visible     := true;
+    bt.OnClick     := @GridButtonClick;
   end;
 
   if FileExists('types.dat')
@@ -443,6 +499,7 @@ begin
 
     if StartStopButton.Down then
     begin
+      Memo1.Lines.Clear;
       if (
          (TypesBox.ItemIndex=-1)
          OR (SamplesBox.ItemIndex=-1)
@@ -790,14 +847,6 @@ begin
 
     if (Status.PowerConnection=1) then
     begin
-
-      if (NOT FConnected) then
-      begin
-        //GridButtonClick(nil);
-      end;
-
-      FConnected:=true;
-
       ConnectionTimer.Interval:=1000;
 
       editPowerStatusUSBCurrent.Text:=POWER_STATUS_CURRENT_DETAILS[Status.TypeCCurrent];
@@ -840,15 +889,62 @@ begin
         begin
           while (i<RemotePDOs.Header.NumValidPDO) AND (i<Pred(gridRemotePDO.ColCount)) do
           begin
+            TButton(gridRemotePDO.Objects[1+i,4]).Enabled:=true;
+            TButton(gridRemotePDO.Objects[1+i,4]).Tag:=(i+1);
+
             gridRemotePDO.Cells[1+i,0]:='PDO '+InttoStr(i+1);
             gridRemotePDO.Cells[1+i,1]:=SUPPLY_TYPES[RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply];
-            gridRemotePDO.Cells[1+i,2]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA';
-            gridRemotePDO.Cells[1+i,3]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt';
-            TButton(gridRemotePDO.Objects[1+i,4]).Enabled:=true;
+
+            if (RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply= Ord(TSUPPLY_TYPES.Fixed)) then
+            begin
+              gridRemotePDO.Cells[1+i,2]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA';
+              gridRemotePDO.Cells[1+i,3]:=InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt';
+            end
+            else
+            if (RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply= Ord(TSUPPLY_TYPES.Variable)) then
+            begin
+              gridRemotePDO.Cells[1+i,2]:=InttoStr(RemotePDOs.RXSourcePDOs[i].VariableSupplyNonBatteryPdo.MaximumCurrentIn10mA*10)+ 'mA';
+              gridRemotePDO.Cells[1+i,3]:=InttoStr(RemotePDOs.RXSourcePDOs[i].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV*50 DIV 1000)+'Volt';
+            end
+            else
+            begin
+              gridRemotePDO.Cells[1+i,2]:='No data';
+              gridRemotePDO.Cells[1+i,3]:='No data';
+            end;
+
+            if (NOT FConnected) then
+            begin
+
+              Memo1.Lines.Append('Remote source PDO#'+InttoStr(i+1));
+              Memo1.Lines.Append('Remote source PDO. Type: '+SUPPLY_TYPES[RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply]);
+
+              if (RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply= Ord(TSUPPLY_TYPES.Fixed)) then
+              begin
+                Memo1.Lines.Append('Remote source PDO. Type: '+InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.MaximumCurrentIn10mA*10)+ 'mA');
+                Memo1.Lines.Append('Remote source PDO. Type: '+InttoStr(RemotePDOs.RXSourcePDOs[i].FixedSupplyPdo.VoltageIn50mV*50 DIV 1000)+'Volt');
+              end
+              else
+              if (RemotePDOs.RXSourcePDOs[i].GenericPdo.Supply= Ord(TSUPPLY_TYPES.Variable)) then
+              begin
+                Memo1.Lines.Append('Remote source PDO. Type: '+InttoStr(RemotePDOs.RXSourcePDOs[i].VariableSupplyNonBatteryPdo.MaximumCurrentIn10mA*10)+ 'mA');
+                Memo1.Lines.Append('Remote source PDO. Type: '+InttoStr(RemotePDOs.RXSourcePDOs[i].VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV*50 DIV 1000)+'Volt');
+                Memo1.Lines.Append('Remote source PDO. Type: '+InttoStr(RemotePDOs.RXSourcePDOs[i].VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV*50 DIV 1000)+'Volt');
+              end
+              else
+              begin
+                Memo1.Lines.Append('Remote source PDO. No data !');
+              end;
+
+            end;
             Inc(i);
           end;
         end;
       end;
+
+      if (NOT FConnected) then ConnectionTimer.Enabled:=false;
+
+      FConnected:=true;
+
     end
     else
     begin
@@ -869,6 +965,7 @@ begin
       gridRemotePDO.Cells[1+i,2]:='';
       gridRemotePDO.Cells[1+i,3]:='';
       TButton(gridRemotePDO.Objects[1+i,4]).Enabled:=false;
+      TButton(gridRemotePDO.Objects[1+i,4]).Tag:=0;
       Inc(i);
     end;
 
@@ -903,11 +1000,11 @@ begin
     if TPS65987.DisConnect then
     begin
       Memo1.Lines.Append('Disconnected');
-      ConnectionTimerTimer(nil);
     end
     else
       Memo1.Lines.Append('Disconnect failure');
   finally
+    ConnectionTimerTimer(nil);
     TButton(Sender).Enabled:=true;
   end;
 end;
@@ -986,8 +1083,11 @@ begin
       Memo1.Lines.Append('Command GAID success !');
     end;
   finally
+    if RestartTimer then
+      ReleaseTimer
+    else
+      ConnectionTimerTimer(nil);
     TButton(Sender).Enabled:=true;
-    if RestartTimer then ReleaseTimer;
   end;
 end;
 
@@ -1037,6 +1137,11 @@ begin
   end else TSpeedButton(Sender).Down:=False;
 end;
 
+procedure TForm1.btnUpdatePDDataClick(Sender: TObject);
+begin
+  if (NOT ConnectionTimer.Enabled) then ConnectionTimerTimer(nil);
+end;
+
 procedure TForm1.Button1Click(Sender: TObject);
 var
   RestartTimer:boolean;
@@ -1049,8 +1154,11 @@ begin
       Memo1.Lines.Append('Command SRYR success !');
     end;
   finally
+    if RestartTimer then
+      ReleaseTimer
+    else
+      ConnectionTimerTimer(nil);
     TButton(Sender).Enabled:=true;
-    if RestartTimer then ReleaseTimer;
   end;
 end;
 
@@ -1073,8 +1181,11 @@ begin
       Memo1.Lines.Append('Command SRDY success !');
     end;
   finally
+    if RestartTimer then
+      ReleaseTimer
+    else
+      ConnectionTimerTimer(nil);
     TButton(Sender).Enabled:=true;
-    if RestartTimer then ReleaseTimer;
   end;
 end;
 
@@ -1137,7 +1248,7 @@ begin
        then CloseAction :=CaNone
        else
        begin
-         Self.WaitOnTimer;
+         WaitOnTimer;
 
          Ini := TIniFile.Create( ChangeFileExt( Application.ExeName, '.INI' ) );
          try
@@ -1248,18 +1359,26 @@ end;
 
 function TForm1.WaitOnTimer:boolean;
 begin
-  while TimersBusy=integer(True) do
+  if TimersBusy=integer(True) then
   begin
-    Sleep(10);
+    //Sleep(1);
     Application.ProcessMessages;
+    //Sleep(50);
+    while TimersBusy=integer(True) do
+    begin
+      Sleep(10);
+      Application.ProcessMessages;
+    end;
   end;
   result:=ConnectionTimer.Enabled;
   ConnectionTimer.Enabled:=False;
+  btnUpdatePDData.Enabled:=True;
 end;
 
 procedure TForm1.ReleaseTimer;
 begin
   ConnectionTimer.Enabled:=True;
+  btnUpdatePDData.Enabled:=False;
 end;
 
 
