@@ -146,10 +146,14 @@ uses
   synaser,tools;
 
 const
-  CONTINUOUSMAGIC     = 'continuous';
-  DURATIONS           = CONTINUOUSMAGIC+',600,3600,7200,10800,14400';
+  CONTINUOUSMAGIC      = 'continuous';
+  DURATIONS            = CONTINUOUSMAGIC+',600,3600,7200,10800,14400';
 
-  StartCurrent        = 0.100;
+  // PowerPath Current resistor + single MOSFET Drain Source resistance
+  // P-NUCLEO-USB002
+  PowerPathResistance  = 0.005+0.015;
+
+  StartCurrent         = 0.100;
 
   PhoneCurrent         = 0.500;
   //PhoneStartVoltage    = 4.900;
@@ -253,7 +257,8 @@ begin
       }
 
       SinkPDS.TXSinkPDOs[1].GenericPdo.Supply:=Ord(TSUPPLY_TYPES.Fixed);
-      SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.OperationalCurrentIn10mA:=(PDOCurrent DIV 10);
+      SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.OperationalCurrentIn10mA:=(1500 DIV 10);
+      //SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.OperationalCurrentIn10mA:=(PDOCurrent DIV 10);
       SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.VoltageIn50mV:=round(((PDOVoltage)*1000/50));
       SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MaxOperatingCurrentOrPower:=(5000 DIV 10);
       SinkPDS.TXSinkPDOExtensions[1].PdoExtension.MinOperatingCurrentOrPower:=(500 DIV 10);
@@ -284,7 +289,7 @@ begin
 
       TPS65987.GetAutoSink(AutoSink);
       AutoSink.AutoComputeSinkMinPower:=0;
-      AutoSink.ANSinkMinRequiredPower:=round(PDOVoltage*PDOCurrent/250);
+      AutoSink.ANSinkMinRequiredPower:=round(((SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.VoltageIn50mV*50)*(SinkPDS.TXSinkPDOs[1].FixedSupplyPdo.OperationalCurrentIn10mA*10))/(1000*250));
       Memo1.Lines.Append('AutoSink SinkMinRequiredPower: '+InttoStr(AutoSink.ANSinkMinRequiredPower*250 DIV 1000)+ 'W');
 
       if TPS65987.SetAutoSink(AutoSink) then
@@ -704,9 +709,9 @@ begin
   if HPsource.Connected then
   begin
     HPsource.Measure;
-    Current:=-1*HPsource.Current;
+    Current:=Abs(HPsource.Current);
     {$ifndef WITHKEITHLEY}
-    Voltage:=HPsource.Voltage;
+    Voltage:=HPsource.Voltage+PowerPathResistance*Current;
     {$else}
     if (TestsBox.ItemIndex<>2) then Voltage:=HPsource.Voltage;
     {$endif}
@@ -1066,8 +1071,8 @@ begin
   if HPsource.Connected then
   begin
     HPsource.Measure;
-    VoltageDisplay.Value:=HPsource.Voltage;
-    CurrentDisplay.Value:=-1*HPsource.Current;
+    VoltageDisplay.Value:=HPsource.Voltage+PowerPathResistance*Abs(HPsource.Current);
+    CurrentDisplay.Value:=Abs(HPsource.Current);
   end
 end;
 
