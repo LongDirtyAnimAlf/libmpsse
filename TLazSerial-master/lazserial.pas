@@ -149,6 +149,9 @@ type
 
     FData:string;
 
+    FCriticalSection: TRTLCriticalSection;
+    FCommandList:TStringList;
+
     procedure DeviceOpen;
     procedure DeviceClose;
 
@@ -168,14 +171,8 @@ type
 
     procedure Open;
     procedure Close;
-    // read data from port
-    function DataAvailable: boolean;
-    function ReadData: string;
-//    function ReadBuffer(var buf; size: integer): integer;
 
-    // write data to port
-    function WriteData(data: string): integer;
-    function WriteBuffer(var buf; size: integer): integer;
+    procedure WriteString(data: AnsiString);
 
     // read pin states
     function ModemSignals: TModemSignals;
@@ -248,6 +245,8 @@ end;
 constructor TLazSerial.Create(AOwner: TComponent);
 begin
   inherited;
+  InitCriticalSection(FCriticalSection);
+  FCommandList:=TStringList.Create;
   //FHandle:=-1;
   ReadThread:=nil;
   FSynSer:=TBlockSerial.Create;
@@ -264,19 +263,12 @@ begin
 //  FBaudRate:=br115200;
 end;
 
-function TLazSerial.DataAvailable: boolean;
-begin
-  if FSynSer.Handle=INVALID_HANDLE_VALUE then begin
-    result:=false;
-    exit;
-  end;
-  result:=FSynSer.CanReadEx(0);
-end;
-
 destructor TLazSerial.Destroy;
 begin
   Close;
   FSynSer.Free;
+  FCommandList.Free;
+  DoneCriticalsection(FCriticalSection);
   inherited;
 end;
 
@@ -305,18 +297,6 @@ begin
   ReadThread.MustDie := false;
 //  ReadThread.Resume;   --> deprecated
   ReadThread.Start;
-end;
-
-
-function TLazSerial.ReadData: string;
-begin
-  result:='';
-  if FSynSer.Handle=INVALID_HANDLE_VALUE then
-    ComException('can not read from a closed port.');
-  if FRcvLineCRLF then
-  result:=FSynSer.RecvString(0)
-  else
-  result:=FSynSer.RecvPacket(0);
 end;
 
 procedure TLazSerial.SetActive(state: boolean);
@@ -396,23 +376,12 @@ begin
   end;
 end;
 
-
-
-
-
-function TLazSerial.WriteBuffer(var buf; size: integer): integer;
+procedure TLazSerial.WriteString(data: AnsiString);
 begin
-//  if FSynSer.Handle=INVALID_HANDLE_VALUE then
- //   ComException('can not write to a closed port.');
-  result:= FSynSer.SendBuffer(Pointer(@buf), size);
+  EnterCriticalSection(FCriticalSection);
+  FCommandList.Append(data);
+  LeaveCriticalSection(FCriticalSection);
 end;
-
-function TLazSerial.WriteData(data: string): integer;
-begin
-  result:=length(data);
-  FSynSer.SendString(data);
-end;
-
 
 function TLazSerial.ModemSignals: TModemSignals;
 begin
@@ -491,6 +460,16 @@ begin
   try
     while not MustDie do
     begin
+
+      EnterCriticalSection(Owner.FCriticalSection);
+      //while ((not MustDie) AND (Owner.FCommandList.Count>0)) do
+      if ((not MustDie) AND (Owner.FCommandList.Count>0)) then
+      begin
+        Owner.FSynSer.SendString(Owner.FCommandList[0]);
+        Owner.FCommandList.Delete(0);
+      end;
+      LeaveCriticalSection(Owner.FCriticalSection);
+
       y:=0;
       repeat
         Inc(y);
@@ -514,6 +493,7 @@ begin
           end;
         end;
       end;
+
     end;
   finally
     Terminate;

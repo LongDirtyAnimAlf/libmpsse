@@ -16,6 +16,7 @@ type
     Button2: TButton;
     Button3: TButton;
     Button4: TButton;
+    Button5: TButton;
     Memo1: TMemo;
     Memo2: TMemo;
     Memo3: TMemo;
@@ -23,6 +24,7 @@ type
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
     procedure Button4Click(Sender: TObject);
+    procedure Button5Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
@@ -420,6 +422,26 @@ type
     GUI_MSG_GET_SINK_CAPA_EXTENDED
   );
 
+  GUI_MESSAGE_PARAMS_TAG =
+  (
+    GUI_PARAM_MSG_SOPTYPE,
+    GUI_PARAM_MSG_RDOPOSITION,
+    GUI_PARAM_MSG_REQUESTEDVOLTAGE,
+    GUI_PARAM_MSG_DUMMY1,
+    GUI_PARAM_MSG_ALERTMSG,
+    GUI_PARAM_MSG_COUNTRYCODE,
+    GUI_PARAM_MSG_SVDM_SVID,
+    GUI_PARAM_MSG_SVDM_MODEINDEX,
+    GUI_PARAM_MSG_UVDM_DATA,
+    GUI_PARAM_MSG_DP_STATUS,
+    GUI_PARAM_MSG_DP_CONFIGURE,
+    GUI_PARAM_MSG_DP_ATTENTION,
+    GUI_PARAM_MSG_BATTERYREF,
+    GUI_PARAM_MSG_MANUINFODATA,
+    GUI_PARAM_MSG_FREE_TEXT,
+    GUI_PARAM_MSG_ALL
+  );
+
   USBPD_POWER_NO =
   (
     NOPOWER,            //*!< No power contract                      */
@@ -464,6 +486,7 @@ end;
 procedure TForm1.SendCommand(Port,Command:byte;DataToSend:pbyte;DataToSendLength:word);
 var
   DataBuffer:array[0..255] of byte;
+  DataString:ansistring;
   x,y:byte;
 begin
   y:=0;
@@ -486,7 +509,8 @@ begin
     DataBuffer[y]:=$A5;
     Inc(y);
   end;
-  ser.SynSer.SendBuffer(@DataBuffer,y);
+  SetString(DataString, PAnsiChar(@DataBuffer[0]), y);
+  ser.WriteString(DataString);
 end;
 
 procedure TForm1.Button3Click(Sender: TObject);
@@ -502,6 +526,23 @@ begin
   Buffer[0]:=Ord(GUI_PARAM_SNK_PDO);
   //Buffer[1]:=Ord(GUI_PARAM_SRC_PDO);
   SendCommand(1,Ord(DPM_CONFIG_GET_REQ),@Buffer,1);
+end;
+
+procedure TForm1.Button5Click(Sender: TObject);
+var
+  Buffer:array[0..255] of byte;
+begin
+  FillChar({%H-}Buffer,SizeOf(Buffer),0);
+  Buffer[0]:=Ord(GUI_PARAM_MSG_RDOPOSITION);
+  Buffer[1]:=0;
+  Buffer[2]:=1;
+  Buffer[3]:=1;
+  Buffer[4]:=Ord(GUI_PARAM_MSG_REQUESTEDVOLTAGE);
+  Buffer[5]:=0;
+  Buffer[6]:=2;
+  Buffer[7]:=(5000 DIV 256);
+  Buffer[8]:=(5000 MOD 256);
+  SendCommand(1,Ord(GUI_MSG_REQUEST),@Buffer,9);
 end;
 
 procedure TForm1.SerialRxData(Sender: TObject);
@@ -655,7 +696,6 @@ begin
     end;
   end;
 end;
-
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
