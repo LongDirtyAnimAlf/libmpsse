@@ -533,16 +533,19 @@ var
   Buffer:array[0..255] of byte;
 begin
   FillChar({%H-}Buffer,SizeOf(Buffer),0);
-  Buffer[0]:=Ord(GUI_PARAM_MSG_RDOPOSITION);
+  Buffer[0]:=Ord(GUI_MSG_REQUEST);
   Buffer[1]:=0;
-  Buffer[2]:=1;
-  Buffer[3]:=1;
-  Buffer[4]:=Ord(GUI_PARAM_MSG_REQUESTEDVOLTAGE);
-  Buffer[5]:=0;
-  Buffer[6]:=2;
-  Buffer[7]:=(5000 DIV 256);
-  Buffer[8]:=(5000 MOD 256);
-  SendCommand(1,Ord(GUI_MSG_REQUEST),@Buffer,9);
+  Buffer[2]:=0;
+  Buffer[3]:=Ord(GUI_PARAM_MSG_RDOPOSITION);
+  Buffer[4]:=0;
+  Buffer[5]:=1;
+  Buffer[6]:=1;
+  Buffer[7]:=Ord(GUI_PARAM_MSG_REQUESTEDVOLTAGE);
+  Buffer[8]:=0;
+  Buffer[9]:=2;
+  Buffer[10]:=(5000 MOD 256);
+  Buffer[11]:=(5000 DIV 256);
+  SendCommand(1,Ord(DPM_MESSAGE_REQ),@Buffer,12);
 end;
 
 procedure TForm1.SerialRxData(Sender: TObject);
@@ -676,19 +679,30 @@ begin
         Inc(x,GUILengthData);
         Memo2.Lines.Append('Length: '+IntToStr(GUILengthData)+'. '+'Command: '+s);
       end;
-    end
+    end;
+    DPM_MESSAGE_REJ:
+    begin
+      s:='';
+      x:=4;
+      while (x<(LengthData+3)) do
+      begin
+        s:=s+InttoHex(Ord(ser.Data[x]))+' ';
+        Inc(x);
+      end;
+      Memo2.Lines.Append('Length:'+IntToStr(LengthData)+'. Rejected: '+s);
+    end;
     else
     begin
       Memo3.Lines.Append('Tag:'+IntToStr(MTag)+'. Port:'+IntToStr(PortNumber)+'. Command:'+InttoStr(Ord(aMessage)));
       Memo3.Lines.Append('Type: '+IntToStr(MType)+'. '+'Length:'+IntToStr(LengthData));
       s:='';
-      for x:=5 to Length(ser.Data) do
+      for x:=4 to Length(ser.Data) do
       begin
         s:=s+InttoHex(Ord(ser.Data[x]))+' ';
       end;
       Memo3.Lines.Append(s);
       s:='';
-      for x:=5 to Length(ser.Data) do
+      for x:=4 to Length(ser.Data) do
       begin
         if ser.Data[x] in [' '..'~'] then s:=s+ser.Data[x];
       end;
