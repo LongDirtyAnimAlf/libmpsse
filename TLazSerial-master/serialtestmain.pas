@@ -15,17 +15,20 @@ type
     Button1: TButton;
     Button2: TButton;
     Button3: TButton;
+    Button4: TButton;
     Memo1: TMemo;
     Memo2: TMemo;
     Memo3: TMemo;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
+    procedure Button4Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
     ser:TLazSerial;
     procedure SerialRxData(Sender: TObject);
+    procedure SendCommand(Port,Command:byte;DataToSend:pbyte;DataToSendLength:word);
   public
 
   end;
@@ -40,7 +43,31 @@ implementation
 uses
   bits,Tools;
 
+const
+  SUPPLY_TYPES : array[0..3] of string = ('Fixed','Battery','Variable','Reserved');
+
+  {
+  GUI_NOTIF_NUMBEROFRCVSNKPDO                    = (1 shl 0);
+  GUI_NOTIF_RDOPOSITION                          = (1 shl 1);
+  GUI_NOTIF_LISTOFRCVSRCPDO                      = (1 shl 2);
+  GUI_NOTIF_NUMBEROFRCVSRCPDO                    = (1 shl 3);
+  GUI_NOTIF_LISTOFRCVSNKPDO                      = (1 shl 4);
+  GUI_NOTIF_ISCONNECTED                          = (1 shl 5);
+  GUI_NOTIF_DATAROLE                             = (1 shl 6);
+  GUI_NOTIF_POWERROLE                            = (1 shl 7);
+  GUI_NOTIF_CCDEFAULTCURRENTADVERTISED           = (1 shl 8);
+  GUI_NOTIF_VCONNON                              = (1 shl 9);
+  GUI_NOTIF_VCONNSWAPED                          = (1 shl 10);
+  GUI_NOTIF_MEASUREREPORTING                     = (1 shl 11);
+  GUI_NOTIF_CC                                   = (1 shl 12);
+  GUI_NOTIF_PE_EVENT                             = (1 shl 13);
+  GUI_NOTIF_TIMESTAMP                            = (1 shl 14);
+  GUI_NOTIF_POWER_EVENT                          = (1 shl 15);
+  }
+
 type
+  TSUPPLY_TYPES = (Fixed,Battery,Variable,Reserved);
+
   USBC_SOURCE_PD_POWER_DATA_OBJECT = bitpacked record
       case integer of
           1 : (  FixedSupplyPdo : record
@@ -125,6 +152,95 @@ type
 
   end;
 
+  USBC_SINK_PD_POWER_DATA_OBJECT = bitpacked record
+      case integer of
+          1 : (  FixedSupplyPdo : record
+                   OperationalCurrentIn10mA : T10BITS;
+                   VoltageIn50mV            : T10BITS;
+                   Reserved                 : T3BITS;
+                   FastRoleSwap             : T2BITS;
+                   DualRoleData             : T1BITS;
+                   UsbCommunicationCapable  : T1BITS;
+                   UnconstrainedPower       : T1BITS;
+                   HigherCapability         : T1BITS;
+                   DualRolePower            : T1BITS;
+                   FixedSupply              : T2BITS;
+                 end
+              );
+          2 : (  BatterySupplyPdo : record
+                   MaximumAllowablePowerIn250mW  : T10BITS;
+                   MinimumVoltageIn50mV          : T10BITS;
+                   MaximumVoltageIn50mV          : T10BITS;
+                   Battery                       : T2BITS;
+                 end
+              );
+          3 : (  VariableSupplyNonBatteryPdo : record
+                   OperationalCurrentIn10mA  : T10BITS;
+                   MinimumVoltageIn50mV      : T10BITS;
+                   MaximumVoltageIn50mV      : T10BITS;
+                   VariableSupportNonBattery : T2BITS;
+                 end
+              );
+          4 : (  GenericPdo : record
+                   PDO                          : T30BITS;
+                   Supply                       : T2BITS;
+                 end
+                 );
+          5 : (
+               Bits            : bitpacked array[0..31] of T1BITS;
+               );
+          6 : (
+               Raw             : DWord;
+              );
+  end;
+
+  USBC_PD_REQUEST_DATA_OBJECT = bitpacked record
+      case integer of
+          1 : (  FixedAndVariableRdo : record
+                   MaximumOperatingCurrentIn10mA : T10BITS;
+                   OperatingCurrentIn10mA        : T10BITS;
+                   Reserved1                     : T5BITS;
+                   NoUSBsuspend                  : T1BITS;
+                   UsbCommunicationCapable       : T1BITS;
+                   CapabilityMismatch            : T1BITS;
+                   GiveBackFlag                  : T1BITS;
+                   ObjectPosition                : T3BITS;
+                   Reserved2                     : T2BITS;
+                 end
+              );
+          2 : (  BatteryRdo : record
+                   MaximumOperatingPowerIn250mW  : T10BITS;
+                   OperatingPowerIn250mW         : T10BITS;
+                   Reserved1                     : T5BITS;
+                   NoUSBsuspend                  : T1BITS;
+                   UsbCommunicationCapable       : T1BITS;
+                   CapabilityMismatch            : T1BITS;
+                   GiveBackFlag                  : T1BITS;
+                   ObjectPosition                : T3BITS;
+                   Reserved2                     : T2BITS;
+                 end
+              );
+          3 : (  ProgrammableRdo : record
+                   OperatingCurrentIn50mA             : T7BITS;
+                   Reserved1                          : T2BITS;
+                   OutputVoltageIn20mV                : T11BITS;
+                   Reserved2                          : T3BITS;
+                   UnchunkedExtendedMessagesSupported : T1BITS;
+                   Reserved3                          : T2BITS;
+                   CapabilityMismatch                 : T1BITS;
+                   Reserved4                          : T1BITS;
+                   ObjectPosition                     : T3BITS;
+                   Reserved5                          : T1BITS;
+                 end
+              );
+          4 : (
+               Bits            : bitpacked array[0..31] of T1BITS;
+               );
+          5 : (
+               Raw             : DWord;
+              );
+  end;
+
   MESSAGE_TYPE =
   (
     DUMMY,
@@ -147,6 +263,43 @@ type
     DPM_REGISTER_WRITE_CNF,
     DEBUG_STACK_MESSAGE
   );
+
+  GUI_INIT_TAG =
+  (
+    GUI_INIT_HWBOARDVERSION,
+    GUI_INIT_HWPDTYPE,
+    GUI_INIT_NBPORTMAX,
+    GUI_INIT_FWVERSION,
+    GUI_INIT_TYPECSPECREVISION,
+    GUI_INIT_DUMMY1,
+    GUI_INIT_EXTENDEDMESSAGESUNCKUNKED,
+    GUI_INIT_ACCESSORYSUPP,
+    GUI_INIT_POWERACCESSORYDETECTION,
+    GUI_INIT_POWERACCESSORYTRANSITION,
+    GUI_INIT_DUMMY2,
+    GUI_INIT_ISCABLE,
+    GUI_INIT_DUMMY3,
+    GUI_INIT_DUMMY4,
+    GUI_INIT_DUMMY5,
+    GUI_INIT_DUMMY6,
+    GUI_INIT_TRYFEATURE,
+    GUI_INIT_DUMMY7,
+    GUI_INIT_RPRESISTORVALUE,
+    GUI_INIT_USBSUPPORT,
+    GUI_INIT_USBDEVICE,
+    GUI_INIT_USBHOST,
+    GUI_INIT_UNCONSTRAINED_POWERED,
+    GUI_INIT_USBSUSPENDSUPPORT,
+    GUI_INIT_VCONNDISCHARGE,
+    GUI_INIT_VCONNILIM,
+    GUI_INIT_VCONNILIMVALUE,
+    GUI_INIT_VCONNMONITORING,
+    GUI_INIT_VCONNTHRESHOLDUVLO,
+    GUI_INIT_VCONNSUPPLY,
+    GUI_INIT_NB_PORT_START,
+    GUI_INIT_ORIGINAL_SETTINGS
+  );
+
 
   GUI_TAG =
   (
@@ -186,6 +339,87 @@ type
     GUI_IND_ALL                                // Number max of indication */
   );
 
+  GUI_PARAM_TAG =
+  (
+    GUI_PARAM_SOP,
+    GUI_PARAM_DUMMY1,
+    GUI_PARAM_FASTROLESWAP,
+    GUI_PARAM_DATAROLESWAP_TO_UFP,
+    GUI_PARAM_DEFAULTPOWERROLE,
+    GUI_PARAM_DRP_SUPPORT,
+    GUI_PARAM_CADROLETOGGLE,
+    GUI_PARAM_PE_SCAP_HR,
+    GUI_PARAM_VCONNSWAP,
+    GUI_PARAM_VDM_SUPPORT,
+    GUI_PARAM_PING_SUPPORT,
+    GUI_PARAM_SUPPORT,
+    GUI_PARAM_SNK_PDO,
+    GUI_PARAM_SRC_PDO,
+    GUI_PARAM_TDRP,
+    GUI_PARAM_DCSRC_DRP,
+    GUI_PARAM_RESPONDS_TO_DISCOV_SOP,
+    GUI_PARAM_ATTEMPTS_DISCOV_SOP,
+    GUI_PARAM_XID_SOP,
+    GUI_PARAM_DATA_CAPABLE_AS_USB_HOST_SOP,
+    GUI_PARAM_DATA_CAPABLE_AS_USB_DEVICE_SOP,
+    GUI_PARAM_PRODUCT_TYPE_SOP,
+    GUI_PARAM_MODAL_OPERATION_SUPPORTED_SOP,
+    GUI_PARAM_USB_VID_SOP,
+    GUI_PARAM_PID_SOP,
+    GUI_PARAM_BCDDEVICE_SOP,
+    GUI_PARAM_MEASUREREPORTING,
+    GUI_PARAM_MANUINFOPORT,
+    GUI_PARAM_DATAROLESWAP_TO_DFP
+  );
+
+  GUI_MESSAGE_TAG =
+  (
+    GUI_MSG_GOTOMIN,
+    GUI_MSG_PING,
+    GUI_MSG_DUMMY1,
+    GUI_MSG_GET_SRC_CAPA,
+    GUI_MSG_GET_SNK_CAPA,
+    GUI_MSG_DR_SWAP,
+    GUI_MSG_PR_SWAP,
+    GUI_MSG_VCONN_SWAP,
+    GUI_MSG_SOFT_RESET,
+    GUI_MSG_GET_SOURCE_CAPA_EXTENDED,
+    GUI_MSG_GET_STATUS,
+    GUI_MSG_FR_SWAP,
+    GUI_MSG_GET_PPS_STATUS,
+    GUI_MSG_GET_COUNTRY_CODES,
+    GUI_MSG_SOURCE_CAPA,
+    GUI_MSG_REQUEST,
+    GUI_MSG_DUMMY2,
+    GUI_MSG_ALERT,
+    GUI_MSG_GET_COUNTRY_INFO,
+    GUI_MSG_VDM_DISCO_IDENT,
+    GUI_MSG_VDM_DISCO_SVID,
+    GUI_MSG_VDM_DISCO_MODE,
+    GUI_MSG_VDM_ENTER_MODE,
+    GUI_MSG_VDM_EXIT_MODE,
+    GUI_MSG_VDM_ATTENTION,
+    GUI_MSG_VDM_UNSTRUCTURED,
+    GUI_MSG_FREE_TEXT,
+    GUI_MSG_DUMMY3,
+    GUI_MSG_DUMMY4,
+    GUI_MSG_DUMMY5,
+    GUI_MSG_DUMMY6,
+    GUI_MSG_DUMMY7,
+    GUI_MSG_DISPLAY_PORT_STATUS,
+    GUI_MSG_DISPLAY_PORT_CONFIG,
+    GUI_MSG_DISPLAY_PORT_ATTENTION,
+    GUI_MSG_DUMMY8,
+    GUI_MSG_HARD_RESET,
+    GUI_MSG_CABLE_RESET,
+    GUI_MSG_GET_BAT_CAPA,
+    GUI_MSG_GET_BAT_STATUS,
+    GUI_MSG_GET_MANU_INFO,
+    GUI_MSG_SECU_REQUEST,
+    GUI_MSG_FIRM_UPDATE_REQUEST,
+    GUI_MSG_GET_SINK_CAPA_EXTENDED
+  );
+
   USBPD_POWER_NO =
   (
     NOPOWER,            //*!< No power contract                      */
@@ -202,10 +436,14 @@ type
     GUI_STATE_RESET
   );
 
+
+
+
 { TForm1 }
 
 procedure TForm1.Button1Click(Sender: TObject);
 begin
+  ser.Close;
   ser.Device:='COM11';
   ser.BaudRate:=br921600;
   ser.FlowControl:=fcNone;
@@ -223,13 +461,9 @@ begin
   Memo3.Lines.Clear;
 end;
 
-procedure TForm1.Button3Click(Sender: TObject);
-const
-  PORT = 0;
+procedure TForm1.SendCommand(Port,Command:byte;DataToSend:pbyte;DataToSendLength:word);
 var
   DataBuffer:array[0..255] of byte;
-  DataLength:byte;
-  Command:byte;
   x,y:byte;
 begin
   y:=0;
@@ -239,12 +473,14 @@ begin
     DataBuffer[y]:=$FD;
     Inc(y);
   end;
-  Command:=Ord(DPM_INIT_REQ);
-  Command:=Command+(PORT shl 5);
-  DataBuffer[y]:=Command;
+  DataBuffer[y]:=(byte(Command AND $1F) OR byte((PORT shl 5) AND $20));
   Inc(y);
-  //For size
-  Inc(y,2);
+  DataBuffer[y]:=(DataToSendLength DIV 256);
+  Inc(y);
+  DataBuffer[y]:=(DataToSendLength MOD 256);
+  Inc(y);
+  if ((DataToSendLength>0) AND (DataToSend<>nil)) then Move(DataToSend^,DataBuffer[y],DataToSendLength);
+  Inc(y,DataToSendLength);
   for x:=0 to 3 do
   begin
     DataBuffer[y]:=$A5;
@@ -253,121 +489,173 @@ begin
   ser.SynSer.SendBuffer(@DataBuffer,y);
 end;
 
+procedure TForm1.Button3Click(Sender: TObject);
+begin
+  SendCommand(0,Ord(DPM_INIT_REQ),nil,0);
+end;
+
+procedure TForm1.Button4Click(Sender: TObject);
+var
+  Buffer:array[0..255] of byte;
+begin
+  FillChar({%H-}Buffer,SizeOf(Buffer),0);
+  Buffer[0]:=Ord(GUI_PARAM_SNK_PDO);
+  //Buffer[1]:=Ord(GUI_PARAM_SRC_PDO);
+  SendCommand(1,Ord(DPM_CONFIG_GET_REQ),@Buffer,1);
+end;
+
 procedure TForm1.SerialRxData(Sender: TObject);
 var
   s:string;
   x,y:integer;
-  MTag,LengthData,LengthString,MType,PortNumber,Command:byte;
+  MTag,LengthData,LengthString,MType,PortNumber:byte;
   MTime:DWord;
-  GUITag,GUICommand,GUILengthData,GUILengthString,GUIType,GUIPortNumbe:byte;
+  GUILengthData:byte;
   aSRCPDO:USBC_SOURCE_PD_POWER_DATA_OBJECT;
+  aMessage:MESSAGE_TYPE;
+  aGUIMessage:GUI_TAG;
+  aGUIInitMessage:GUI_INIT_TAG;
 begin
-  //IntToHex
   s:='';
   MTag:=Ord(ser.Data[1]);
   PortNumber:=((MTag AND $20) shr 5);
-  Command:=(MTag AND $1F);
-  Memo1.Lines.Append('Tag:'+IntToStr(MTag)+'. Port:'+IntToStr(PortNumber)+'. Command:'+InttoStr(Command));
   LengthData:=(Ord(ser.Data[2])*256)+Ord(ser.Data[3]);
-  if (Command=Ord(MESSAGE_TYPE.DEBUG_STACK_MESSAGE)) then
-  begin
-    MType:=Ord(ser.Data[4]);
-    MTime:=((((Ord(ser.Data[8])*256)+Ord(ser.Data[7]))*256+Ord(ser.Data[6]))*256)+Ord(ser.Data[5]);
-    Memo1.Lines.Append('Type: '+IntToStr(MType)+'. '+'Length: '+IntToStr(LengthData)+'. '+'Time: '+IntToStr(MTime));
-    s:='';
-    if MType=6 then
+  aMessage:=MESSAGE_TYPE((MTag AND $1F));
+  case aMessage of
+    DEBUG_STACK_MESSAGE:
     begin
-      LengthString:=Ord(ser.Data[12]);
-      for x:=1 to Pred(LengthString) do
+      Memo1.Lines.Append('Tag:'+IntToStr(MTag)+'. Port:'+IntToStr(PortNumber)+'. Command: DEBUG_STACK_MESSAGE');
+      MType:=Ord(ser.Data[4]);
+      MTime:=((((Ord(ser.Data[8])*256)+Ord(ser.Data[7]))*256+Ord(ser.Data[6]))*256)+Ord(ser.Data[5]);
+      Memo1.Lines.Append('Type: '+IntToStr(MType)+'. '+'Length: '+IntToStr(LengthData)+'. '+'Time: '+IntToStr(MTime));
+      s:='';
+      if MType=6 then
       begin
-        if ser.Data[x+12] in [' '..'~'] then s:=s+ser.Data[x+12];
+        LengthString:=Ord(ser.Data[12]);
+        for x:=1 to Pred(LengthString) do
+        begin
+          if ser.Data[x+12] in [' '..'~'] then s:=s+ser.Data[x+12];
+        end;
+      end
+      else
+      begin
+        for x:=5 to Length(ser.Data) do
+        begin
+          s:=s+InttoHex(Ord(ser.Data[x]))+' ';
+        end;
+      end;
+      Memo1.Lines.Append(s);
+    end;
+    DPM_MESSAGE_IND:
+    begin
+      Memo2.Lines.Append('Tag:'+IntToStr(MTag)+'. Port:'+IntToStr(PortNumber)+'. Command: DPM_MESSAGE_IND');
+      x:=4;
+      while (x<(LengthData+3)) do
+      begin
+        aGUIMessage:=GUI_TAG(Ord(ser.Data[x]));
+        s:='#'+InttoStr(Ord(ser.Data[x]))+'->';
+        Inc(x);
+        GUILengthData:=(Ord(ser.Data[x])*256)+Ord(ser.Data[x+1]);
+        Inc(x,2);
+        if GUILengthData=0 then
+        begin
+          Memo2.Lines.Append('End');
+          break;
+        end;
+        s:=s+GetEnumNameSimple(TypeInfo(GUI_TAG),Ord(aGUIMessage))+': ';
+        case aGUIMessage of
+          GUI_IND_LISTOFRCVSRCPDO:
+          begin
+            s:=s+#13#10;
+            y:=0;
+            while (y<GUILengthData) do
+            begin
+              aSRCPDO.Bytes[0]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              aSRCPDO.Bytes[1]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              aSRCPDO.Bytes[2]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              aSRCPDO.Bytes[3]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              s:=s+'PDO type: '+SUPPLY_TYPES[aSRCPDO.GenericPdo.Supply];
+              case aSRCPDO.GenericPdo.Supply of
+                Ord(TSUPPLY_TYPES.Fixed):
+                begin
+                  s:=s+'Current: '+InttoStr(aSRCPDO.FixedSupplyPdo.MaximumCurrentIn10mA*10)+'mA. ';
+                  s:=s+'Voltage: '+InttoStr(aSRCPDO.FixedSupplyPdo.VoltageIn50mV*50)+'mV';
+                end;
+                Ord(TSUPPLY_TYPES.Variable):
+                begin
+                  s:=s+'Current: '+InttoStr(aSRCPDO.VariableSupplyNonBatteryPdo.MaximumCurrentIn10mA*10)+'mA. ';
+                  s:=s+'Min voltage: '+InttoStr(aSRCPDO.VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV*50)+'mV';
+                  s:=s+'Max voltage: '+InttoStr(aSRCPDO.VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV*50)+'mV';
+                end;
+              end;
+              s:=s+#13#10;
+            end;
+          end;
+          GUI_IND_RDOPOSITION:
+          begin
+            s:=s+'Selected PDO #'+InttoStr(Ord(ser.Data[x]));
+          end
+          else
+          begin
+            for y:=1 to GUILengthData do
+            begin
+              s:=s+InttoHex(Ord(ser.Data[x+y-1]))+' ';
+            end;
+          end;
+        end;
+        Inc(x,GUILengthData);
+        Memo2.Lines.Append('Length: '+IntToStr(GUILengthData)+'. '+'Command: '+s);
+      end;
+    end;
+    DPM_INIT_CNF:
+    begin
+      Memo2.Lines.Append('Tag:'+IntToStr(MTag)+'. Port:'+IntToStr(PortNumber)+'. Command: DPM_INIT_CNF');
+      x:=4;
+      while (x<(LengthData+3)) do
+      begin
+        aGUIInitMessage:=GUI_INIT_TAG(Ord(ser.Data[x]));
+        Inc(x);
+        GUILengthData:=(Ord(ser.Data[x])*256)+Ord(ser.Data[x+1]);
+        Inc(x,2);
+        if GUILengthData=0 then
+        begin
+          Memo2.Lines.Append('End');
+          break;
+        end;
+        s:=GetEnumNameSimple(TypeInfo(GUI_INIT_TAG),Ord(aGUIInitMessage))+': ';
+        case aGUIInitMessage of
+          GUI_INIT_HWBOARDVERSION: for y:=0 to Pred(GUILengthData) do s:=s+ser.Data[x+y];
+          GUI_INIT_HWPDTYPE: for y:=0 to Pred(GUILengthData) do s:=s+ser.Data[x+y];
+          GUI_INIT_FWVERSION:for y:=0 to Pred(GUILengthData) do s:=s+InttoHex(Ord(ser.Data[x+y-1]))+' ';
+        end;
+        Inc(x,GUILengthData);
+        Memo2.Lines.Append('Length: '+IntToStr(GUILengthData)+'. '+'Command: '+s);
       end;
     end
     else
     begin
+      Memo3.Lines.Append('Tag:'+IntToStr(MTag)+'. Port:'+IntToStr(PortNumber)+'. Command:'+InttoStr(Ord(aMessage)));
+      Memo3.Lines.Append('Type: '+IntToStr(MType)+'. '+'Length:'+IntToStr(LengthData));
+      s:='';
       for x:=5 to Length(ser.Data) do
       begin
         s:=s+InttoHex(Ord(ser.Data[x]))+' ';
       end;
-    end;
-    Memo1.Lines.Append(s);
-  end
-  else
-  if (Command=Ord(MESSAGE_TYPE.DPM_MESSAGE_IND)) then
-  begin
-    {
-    s:='';
-    for x:=4 to (LengthData+3) do
-    begin
-      s:=s+InttoHex(Ord(ser.Data[x]))+' ';
-    end;
-    Memo2.Lines.Append(s);
-    }
-    x:=4;
-    while (x<(LengthData+3)) do
-    begin
-      GUITag:=Ord(ser.Data[x]);
-      Inc(x);
-      GUILengthData:=(Ord(ser.Data[x])*256)+Ord(ser.Data[x+1]);
-      Inc(x,2);
-      if GUILengthData=0 then
+      Memo3.Lines.Append(s);
+      s:='';
+      for x:=5 to Length(ser.Data) do
       begin
-        Memo2.Lines.Append('End');
-        break;
+        if ser.Data[x] in [' '..'~'] then s:=s+ser.Data[x];
       end;
-      s:=GetEnumNameSimple(TypeInfo(GUI_TAG),GUITag)+': ';
-      if GUITag=Ord(GUI_IND_LISTOFRCVSRCPDO) then
-      begin
-        s:=s+#13#10;
-        y:=0;
-        while (y<GUILengthData) do
-        begin
-          aSRCPDO.Bytes[0]:=Ord(ser.Data[x+y]);
-          Inc(y);
-          aSRCPDO.Bytes[1]:=Ord(ser.Data[x+y]);
-          Inc(y);
-          aSRCPDO.Bytes[2]:=Ord(ser.Data[x+y]);
-          Inc(y);
-          aSRCPDO.Bytes[3]:=Ord(ser.Data[x+y]);
-          Inc(y);
-          s:=s+'Current:'+InttoStr(aSRCPDO.FixedSupplyPdo.MaximumCurrentIn10mA*10)+'mA. ';
-          s:=s+'Voltage:'+InttoStr(aSRCPDO.FixedSupplyPdo.VoltageIn50mV*50)+'mV';
-          s:=s+#13#10;
-          //s:=s+InttoHex(Ord(ser.Data[x+y-1]))+' ';
-        end;
-      end
-      else
-      if GUITag=Ord(GUI_IND_RDOPOSITION) then
-      begin
-        for y:=1 to GUILengthData do
-        begin
-          s:=s+InttoHex(Ord(ser.Data[x+y-1]))+' ';
-        end;
-      end
-      else
-      begin
-        for y:=1 to GUILengthData do
-        begin
-          s:=s+InttoHex(Ord(ser.Data[x+y-1]))+' ';
-        end;
-      end;
-      Inc(x,GUILengthData);
-      Memo2.Lines.Append('Tag: '+IntToStr(GUITag)+'. '+'Length: '+IntToStr(GUILengthData)+'. '+'Data: '+s);
+      Memo3.Lines.Append(s);
     end;
-  end
-  else
-  begin
-    Memo3.Lines.Append('Type: '+IntToStr(MType)+'. '+'Length:'+IntToStr(LengthData));
-    s:='';
-    for x:=5 to Length(ser.Data) do
-    begin
-      s:=s+InttoHex(Ord(ser.Data[x]))+' ';
-    end;
-    Memo3.Lines.Append(s);
   end;
-
-
 end;
+
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
