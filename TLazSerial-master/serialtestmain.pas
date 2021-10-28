@@ -15,16 +15,16 @@ type
     Button1: TButton;
     Button2: TButton;
     Button3: TButton;
-    Button4: TButton;
-    Button5: TButton;
+    btnGetSink: TButton;
+    btnSetPDO: TButton;
     Memo1: TMemo;
     Memo2: TMemo;
     Memo3: TMemo;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
     procedure Button3Click(Sender: TObject);
-    procedure Button4Click(Sender: TObject);
-    procedure Button5Click(Sender: TObject);
+    procedure btnGetSinkClick(Sender: TObject);
+    procedure btnSetPDOClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
   private
@@ -146,7 +146,7 @@ type
                Bits            : bitpacked array[0..31] of T1BITS;
               );
          10 : (
-               Bytes           : bitpacked array[0..31] of byte;
+               Bytes           : bitpacked array[0..3] of byte;
               );
          11 : (
                Raw             : DWord;
@@ -192,6 +192,9 @@ type
                Bits            : bitpacked array[0..31] of T1BITS;
                );
           6 : (
+                Bytes           : bitpacked array[0..3] of byte;
+               );
+          7 : (
                Raw             : DWord;
               );
   end;
@@ -518,7 +521,7 @@ begin
   SendCommand(0,Ord(DPM_INIT_REQ),nil,0);
 end;
 
-procedure TForm1.Button4Click(Sender: TObject);
+procedure TForm1.btnGetSinkClick(Sender: TObject);
 var
   Buffer:array[0..255] of byte;
 begin
@@ -528,7 +531,7 @@ begin
   SendCommand(1,Ord(DPM_CONFIG_GET_REQ),@Buffer,1);
 end;
 
-procedure TForm1.Button5Click(Sender: TObject);
+procedure TForm1.btnSetPDOClick(Sender: TObject);
 var
   Buffer:array[0..255] of byte;
 begin
@@ -556,9 +559,11 @@ var
   MTime:DWord;
   GUILengthData:byte;
   aSRCPDO:USBC_SOURCE_PD_POWER_DATA_OBJECT;
+  aSNKPDO:USBC_SINK_PD_POWER_DATA_OBJECT;
   aMessage:MESSAGE_TYPE;
   aGUIMessage:GUI_TAG;
   aGUIInitMessage:GUI_INIT_TAG;
+  aGUIParam:GUI_PARAM_TAG;
 begin
   s:='';
   MTag:=Ord(ser.Data[1]);
@@ -622,7 +627,7 @@ begin
               Inc(y);
               aSRCPDO.Bytes[3]:=Ord(ser.Data[x+y]);
               Inc(y);
-              s:=s+'PDO type: '+SUPPLY_TYPES[aSRCPDO.GenericPdo.Supply];
+              s:=s+'PDO type: '+SUPPLY_TYPES[aSRCPDO.GenericPdo.Supply]+'. ';
               case aSRCPDO.GenericPdo.Supply of
                 Ord(TSUPPLY_TYPES.Fixed):
                 begin
@@ -690,6 +695,79 @@ begin
         Inc(x);
       end;
       Memo2.Lines.Append('Length:'+IntToStr(LengthData)+'. Rejected: '+s);
+    end;
+    DPM_CONFIG_GET_CNF:
+    begin
+      x:=4;
+      Memo2.Lines.Append('Tag:'+IntToStr(MTag)+'. Port:'+IntToStr(PortNumber)+'. Command: DPM_CONFIG_GET_CNF');
+      x:=4;
+      while (x<(LengthData+3)) do
+      begin
+        aGUIParam:=GUI_PARAM_TAG(Ord(ser.Data[x]));
+        s:='#'+InttoStr(Ord(ser.Data[x]))+'->';
+        Inc(x);
+        GUILengthData:=(Ord(ser.Data[x])*256)+Ord(ser.Data[x+1]);
+        Inc(x,2);
+        if GUILengthData=0 then
+        begin
+          Memo2.Lines.Append('End');
+          break;
+        end;
+        s:=s+GetEnumNameSimple(TypeInfo(GUI_PARAM_TAG),Ord(aGUIParam))+': ';
+        case aGUIParam of
+          GUI_PARAM_SNK_PDO:
+          begin
+            s:=s+#13#10;
+            y:=0;
+            while (y<GUILengthData) do
+            begin
+              aSNKPDO.Bytes[0]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              aSNKPDO.Bytes[1]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              aSNKPDO.Bytes[2]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              aSNKPDO.Bytes[3]:=Ord(ser.Data[x+y]);
+              Inc(y);
+              s:=s+'PDO type: '+SUPPLY_TYPES[aSNKPDO.GenericPdo.Supply]+'. ';
+              case aSNKPDO.GenericPdo.Supply of
+                Ord(TSUPPLY_TYPES.Fixed):
+                begin
+                  s:=s+'Operational Current: '+InttoStr(aSNKPDO.FixedSupplyPdo.OperationalCurrentIn10mA*10)+'mA. ';
+                  s:=s+'Voltage: '+InttoStr(aSNKPDO.FixedSupplyPdo.VoltageIn50mV*50)+'mV';
+                end;
+                Ord(TSUPPLY_TYPES.Variable):
+                begin
+                  s:=s+'Operational Current: '+InttoStr(aSNKPDO.VariableSupplyNonBatteryPdo.OperationalCurrentIn10mA*10)+'mA. ';
+                  s:=s+'Min voltage: '+InttoStr(aSNKPDO.VariableSupplyNonBatteryPdo.MinimumVoltageIn50mV*50)+'mV';
+                  s:=s+'Max voltage: '+InttoStr(aSNKPDO.VariableSupplyNonBatteryPdo.MaximumVoltageIn50mV*50)+'mV';
+                end;
+              end;
+              s:=s+#13#10;
+            end;
+          end;
+          else
+          begin
+            for y:=1 to GUILengthData do
+            begin
+              s:=s+InttoHex(Ord(ser.Data[x+y-1]))+' ';
+            end;
+          end;
+        end;
+        Inc(x,GUILengthData);
+        Memo2.Lines.Append('Length: '+IntToStr(GUILengthData)+'. '+'Command: '+s);
+      end;
+    end;
+    DPM_CONFIG_GET_REQ:
+    begin
+      s:='';
+      x:=4;
+      while (x<(LengthData+3)) do
+      begin
+        s:=s+InttoHex(Ord(ser.Data[x]))+' ';
+        Inc(x);
+      end;
+      Memo2.Lines.Append('Length:'+IntToStr(LengthData)+'. Get request: '+s);
     end;
     else
     begin
